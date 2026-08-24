@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockCraft Planner — Minecraft Building Blueprints</title>
+<meta name="description" content="Plan Minecraft builds layer by layer: draw blueprints, get exact material lists, load templates and follow building guides. Free, runs in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23573b21'/><rect width='16' height='7' fill='%2360a944'/><rect y='6' width='16' height='2' fill='%234a8a35' opacity='.6'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<header id="topbar">
+  <div class="brand">
+    <span class="brand-cube" aria-hidden="true"></span>
+    <h1>BlockCraft<span> Planner</span></h1>
+  </div>
+
+  <input id="bp-name" type="text" value="My First Build" maxlength="40" aria-label="Blueprint name" spellcheck="false">
+
+  <div class="topbar-actions">
+    <button id="btn-new" class="btn" title="New blueprint (sets size)">🗒️ New</button>
+    <button id="btn-templates" class="btn btn-accent" title="Load a ready-made build">🏰 Templates</button>
+    <button id="btn-guides" class="btn" title="Building guides">📖 Guides</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button id="btn-save" class="btn" title="Save a named copy in this browser">💾 Save</button>
+    <button id="btn-open" class="btn" title="Open a saved blueprint">📂 Open</button>
+    <button id="btn-export" class="btn" title="Export JSON / PNG">⬇️ Export</button>
+    <button id="btn-import" class="btn" title="Import a blueprint JSON file">⬆️ Import</button>
+    <input id="import-file" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div id="workspace">
+
+  <!-- ===================== LEFT: TOOLS + PALETTE ===================== -->
+  <aside id="left-panel">
+    <section class="panel" id="tools-panel" aria-label="Tools">
+      <h2>Tools</h2>
+      <div class="tool-grid" role="toolbar" aria-label="Drawing tools">
+        <button class="tool" data-tool="pencil"  title="Pencil — draw blocks (B)">✏️<span>Pencil</span></button>
+        <button class="tool" data-tool="eraser"  title="Eraser — remove blocks (E)">🧽<span>Eraser</span></button>
+        <button class="tool" data-tool="fill"    title="Fill — flood a connected area (F)">🪣<span>Fill</span></button>
+        <button class="tool" data-tool="line"    title="Line — drag to draw (L)">📏<span>Line</span></button>
+        <button class="tool" data-tool="rect"    title="Rectangle — drag to draw (R)">▭<span>Rect</span></button>
+        <button class="tool" data-tool="ellipse" title="Ellipse — drag to draw; perfect for towers (O)">◯<span>Ellipse</span></button>
+        <button class="tool" data-tool="picker"  title="Picker — click a cell to grab its block (I)">💉<span>Pick</span></button>
+      </div>
+      <label class="opt"><input type="checkbox" id="opt-fill-shape"> Fill shape <small>(rect/ellipse)</small></label>
+      <div class="mirror-row">
+        <label class="opt"><input type="checkbox" id="opt-mirror-x"> Mirror X</label>
+        <label class="opt"><input type="checkbox" id="opt-mirror-z"> Mirror Z</label>
+      </div>
+      <div class="mirror-row">
+        <label class="opt"><input type="checkbox" id="opt-onion" checked> Onion skin</label>
+        <label class="opt"><input type="checkbox" id="opt-grid" checked> Grid lines</label>
+      </div>
+      <div class="undo-row">
+        <button id="btn-undo" class="btn btn-sm" title="Undo (Ctrl+Z)">↩ Undo</button>
+        <button id="btn-redo" class="btn btn-sm" title="Redo (Ctrl+Y)">↪ Redo</button>
+      </div>
+    </section>
+
+    <section class="panel grow" id="palette-panel" aria-label="Block palette">
+      <h2>Blocks</h2>
+      <div class="current-block" id="current-block">
+        <span class="chip" id="current-chip"></span>
+        <span id="current-name">Oak Planks</span>
+      </div>
+      <input id="palette-search" type="search" placeholder="Search blocks…" aria-label="Search blocks">
+      <div id="palette" tabindex="-1"></div>
+    </section>
+  </aside>
+
+  <!-- ===================== CENTER: EDITOR ===================== -->
+  <main id="editor-area">
+    <div id="layer-bar">
+      <button id="layer-down" class="btn btn-sm" title="Layer down ( [ )">▼</button>
+      <div id="layer-label">Layer <b id="layer-num">1</b> / <span id="layer-total">1</span></div>
+      <button id="layer-up" class="btn btn-sm" title="Layer up ( ] )">▲</button>
+      <input id="layer-slider" type="range" min="0" max="0" value="0" aria-label="Layer">
+      <span class="sep" aria-hidden="true"></span>
+      <button id="layer-dup" class="btn btn-sm" title="Copy this layer onto the layer above">⧉ Dup ↑</button>
+      <button id="layer-clear" class="btn btn-sm" title="Clear this layer">✕ Clear</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button id="zoom-out" class="btn btn-sm" title="Zoom out (-)">−</button>
+      <span id="zoom-label">24px</span>
+      <button id="zoom-in" class="btn btn-sm" title="Zoom in (+)">+</button>
+      <button id="zoom-fit" class="btn btn-sm" title="Fit blueprint to view">Fit</button>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="grid-canvas"></canvas>
+    </div>
+
+    <div id="status-bar">
+      <span id="status-pos">—</span>
+      <span id="status-size">9×9 · 1 layer</span>
+      <span id="status-hint">Left: draw · Right: erase · Middle/Alt: pick · Space+drag: pan</span>
+    </div>
+  </main>
+
+  <!-- ===================== RIGHT: MATERIALS / PREVIEW ===================== -->
+  <aside id="right-panel">
+    <div class="tab-row" role="tablist">
+      <button class="tab active" id="tab-materials" role="tab" aria-selected="true">📦 Materials</button>
+      <button class="tab" id="tab-preview" role="tab" aria-selected="false">🧊 3D Preview</button>
+    </div>
+
+    <section class="panel grow" id="materials-panel" role="tabpanel">
+      <div class="mat-header">
+        <label class="opt"><input type="checkbox" id="opt-layer-only"> This layer only</label>
+        <button id="btn-copy-mats" class="btn btn-sm" title="Copy material list to clipboard">📋 Copy</button>
+      </div>
+      <div id="materials-summary" class="mat-summary"></div>
+      <div id="materials-list"></div>
+    </section>
+
+    <section class="panel grow hidden" id="preview-panel" role="tabpanel">
+      <div class="preview-controls">
+        <button id="preview-rotate" class="btn btn-sm" title="Rotate view 90°">⟳ Rotate</button>
+        <label class="opt"><input type="checkbox" id="opt-preview-cut" > Cutaway above current layer</label>
+      </div>
+      <div id="preview-wrap"><canvas id="preview-canvas"></canvas></div>
+      <p class="preview-note">Isometric preview — updates as you draw.</p>
+    </section>
+  </aside>
+</div>
+
+<!-- ===================== MODALS ===================== -->
+<div id="modal-backdrop" class="hidden">
+  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+    <div id="modal-head">
+      <h2 id="modal-title">Title</h2>
+      <button id="modal-close" class="btn btn-sm" aria-label="Close">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast-zone" aria-live="polite"></div>
+
+<script src="js/blocks.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/templates_large.js"></script>
+<script src="js/guides.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
