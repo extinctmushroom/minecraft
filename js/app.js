@@ -30,7 +30,7 @@ const state = {
   mirrorX: false, mirrorZ: false,
   onion: true, gridLines: true,
   layerOnly: false,
-  previewRot: 0,
+  previewRot: 2, // front (low-z) faces the camera by default
   previewCut: false,
   dirty: false,         // has unsaved (un-autosaved) edits
 };
@@ -977,11 +977,12 @@ function showTemplatesModal() {
       <h3>${g.title}</h3><p>${g.sub}</p>
     </div>
     <div class="tpl-grid">${g.items.map(tplCard).join("")}</div>`).join(""));
-  // thumbnails
+  // thumbnails (rotated 180° so each build's front faces the camera)
   els.modalBody.querySelectorAll("canvas.tpl-thumb").forEach((cv) => {
     const t = TEMPLATES[+cv.dataset.i];
     const g = templateGrid(t);
-    const get = (x, z, y) => g[(y * t.depth + z) * t.width + x];
+    const get = (x, z, y) =>
+      g[(y * t.depth + (t.depth - 1 - z)) * t.width + (t.width - 1 - x)];
     renderIso(cv.getContext("2d"), cv, get, t.width, t.depth, t.height, 200);
     cv.style.height = "140px";
   });
@@ -1024,7 +1025,8 @@ function showTemplateDetail(t) {
       </div>
     </div>`);
   const cv = $("tpl-detail-canvas");
-  renderIso(cv.getContext("2d"), cv, (x, z, y) => g[(y * t.depth + z) * t.width + x],
+  renderIso(cv.getContext("2d"), cv,
+    (x, z, y) => g[(y * t.depth + (t.depth - 1 - z)) * t.width + (t.width - 1 - x)],
     t.width, t.depth, t.height, 320);
   $("tpl-back").addEventListener("click", showTemplatesModal);
   $("tpl-load").addEventListener("click", () => {

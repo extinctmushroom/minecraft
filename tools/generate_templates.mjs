@@ -693,6 +693,589 @@ const templates = [];
   }, v));
 }
 
+/* ============================================================
+   7. BLACKTIDE GALLEON — pirate ship, 13×31×24
+   ============================================================ */
+{
+  const W = 13, D = 31, H = 24;
+  const v = new Vox(W, D, H);
+  const cx = 6;
+  // deck half-width profile along the length
+  const hw = (z) => {
+    if (z < 2 || z > 28) return 0;
+    if (z === 2) return 1;
+    if (z === 3) return 2;
+    if (z === 4) return 3;
+    if (z === 5) return 4;
+    if (z <= 24) return 5;
+    return 4; // squared-off stern
+  };
+  const bottom = (z) => (z <= 3 || z >= 27 ? 4 : z <= 5 || z >= 25 ? 3 : 2);
+
+  // hull shell: sides narrow toward the keel, floor at the bottom course
+  for (let z = 2; z <= 28; z++) {
+    const bw = hw(z);
+    if (!bw) continue;
+    for (let y = bottom(z); y <= 6; y++) {
+      const wy = Math.max(1, bw - Math.max(0, 5 - y));
+      const mat = y === 5 ? "dark_oak_planks" : "spruce_planks"; // wale stripe
+      v.set(cx - wy, z, y, mat);
+      v.set(cx + wy, z, y, mat);
+      if (y === bottom(z)) v.box(cx - wy, z, y, cx + wy, z, y, "spruce_planks");
+    }
+    // bow stem and stern transom are solid walls
+    if (z === 2 || z === 28)
+      v.box(cx - Math.max(1, bw - 1), z, bottom(z), cx + Math.max(1, bw - 1), z, 7, "spruce_planks");
+  }
+  // main deck + bulwarks
+  for (let z = 3; z <= 27; z++) v.box(cx - hw(z), z, 6, cx + hw(z), z, 6, "oak_planks");
+  for (let z = 3; z <= 27; z++) {
+    v.set(cx - hw(z), z, 7, "spruce_planks");
+    v.set(cx + hw(z), z, 7, "spruce_planks");
+  }
+  // forecastle
+  for (let z = 2; z <= 6; z++) v.box(cx - Math.max(1, hw(z) - 1), z, 8, cx + Math.max(1, hw(z) - 1), z, 8, "oak_planks");
+  v.box(cx - 1, 2, 9, cx + 1, 2, 9, "oak_fence");
+  v.set(cx - 3, 6, 9, "oak_fence"); v.set(cx + 3, 6, 9, "oak_fence");
+  // stern castle: cabin, poop deck, railing, lanterns
+  v.box(cx - 4, 23, 7, cx + 4, 28, 9, "spruce_planks");
+  v.clear(cx - 3, 24, 7, cx + 3, 27, 9);                        // hollow interior (keep front wall)
+  v.clear(cx, 23, 7, cx, 23, 8);                                // cabin doorway
+  v.box(cx - 2, 28, 8, cx + 2, 28, 8, "glass_pane");            // stern gallery windows
+  v.box(cx - 4, 23, 10, cx + 4, 28, 10, "oak_planks");          // poop deck
+  for (let z = 23; z <= 28; z++) { v.set(cx - 4, z, 11, "oak_fence"); v.set(cx + 4, z, 11, "oak_fence"); }
+  v.box(cx - 3, 28, 11, cx + 3, 28, 11, "oak_fence");
+  v.set(cx - 3, 28, 12, "lantern"); v.set(cx + 3, 28, 12, "lantern");
+  // bowsprit + gilded figurehead
+  v.set(cx, 1, 8, "spruce_log"); v.set(cx, 0, 9, "spruce_log");
+  v.set(cx, 1, 7, "gold_block");
+  // anchor on the port bow
+  v.set(cx - 5, 6, 5, "chain"); v.set(cx - 5, 6, 4, "chain"); v.set(cx - 5, 6, 3, "iron_block");
+  // masts
+  v.box(cx, 8, 7, cx, 8, 18, "dark_oak_log");                   // fore
+  v.box(cx, 15, 7, cx, 15, 21, "dark_oak_log");                 // main
+  v.box(cx, 24, 11, cx, 24, 19, "dark_oak_log");                // mizzen (through the poop deck)
+  // sails (wool planes hung just forward of each mast) + yards
+  const sail = (z, y0, y1, half) => {
+    v.box(cx - half, z, y0, cx + half, z, y1, "white_wool");
+    v.box(cx - half, z, y1 + 1, cx + half, z, y1 + 1, "oak_fence"); // yardarm
+  };
+  sail(7, 9, 12, 3); sail(7, 14, 16, 2);                        // fore lower + top
+  sail(14, 10, 14, 4); sail(14, 16, 19, 3);                     // main lower + top
+  sail(23, 12, 16, 3);                                          // mizzen
+  // crow's nest + colours
+  v.annulusRect(cx, 15, 1, 1, 18, "oak_planks");
+  v.annulusRect(cx, 15, 1, 1, 19, "oak_fence");
+  v.set(cx, 16, 21, "black_wool"); v.set(cx, 17, 21, "black_wool"); v.set(cx, 16, 20, "black_wool");
+
+  templates.push(toTemplate({
+    id: "blacktide_galleon",
+    name: "Blacktide Galleon",
+    category: "Nautical",
+    difficulty: "Advanced",
+    description:
+      "A three-masted pirate galleon with a rounded spruce hull and dark-oak wale stripe, " +
+      "raised forecastle and stern castle with glass gallery windows, five wool sails on " +
+      "fenced yards, a crow's nest, black colours at the masthead, a gilded figurehead and " +
+      "an anchor chain on the port bow.",
+    tips: [
+      "Build the keel and hull ribs first, layer by layer — the half-width shrinks by one for each course below the wale.",
+      "Float it: build from a scaffold platform at water level and remove the platform last.",
+      "Sails hang one block forward of each mast; leave them out for a docked, sails-furled look.",
+      "Swap white wool for gray and fly the black flag higher if you want her more menacing.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   8. SUNSPIRE ZIGGURAT — desert temple, 31×33×19
+   ============================================================ */
+{
+  const W = 31, D = 33, H = 19;
+  const v = new Vox(W, D, H);
+  const rnd = mulberry32(2468);
+  const cx = 15, cz = 17;
+  const sand = () => {
+    const r = rnd();
+    return r < 0.12 ? "smooth_sandstone" : r < 0.18 ? "cut_sandstone" : "sandstone";
+  };
+  const tierWall = (hwT, y) => {
+    for (let z = cz - hwT; z <= cz + hwT; z++)
+      for (let x = cx - hwT; x <= cx + hwT; x++) {
+        if (Math.max(Math.abs(x - cx), Math.abs(z - cz)) !== hwT) continue;
+        const corner = Math.abs(x - cx) === hwT && Math.abs(z - cz) === hwT;
+        v.set(x, z, y, corner ? "cut_sandstone" : sand());
+      }
+  };
+  const tiers = [[14, 0], [11, 3], [8, 6], [5, 9]];
+  tiers.forEach(([hwT, y0], i) => {
+    for (let y = y0; y <= y0 + 2; y++) tierWall(hwT, y);
+    // orange banding on the middle course
+    for (let x = cx - hwT + 2; x <= cx + hwT - 2; x += 3) {
+      v.set(x, cz - hwT, y0 + 1, "orange_terracotta");
+      v.set(x, cz + hwT, y0 + 1, "orange_terracotta");
+    }
+    for (let z = cz - hwT + 2; z <= cz + hwT - 2; z += 3) {
+      v.set(cx - hwT, z, y0 + 1, "orange_terracotta");
+      v.set(cx + hwT, z, y0 + 1, "orange_terracotta");
+    }
+    // exposed terrace surface on top of the tier
+    const next = i < 3 ? tiers[i + 1][0] : 4;
+    v.annulusRect(cx, cz, next, hwT, y0 + 2, sand);
+    // lapis corner markers on each terrace
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      v.set(cx + sx * hwT, cz + sz * hwT, y0 + 2, "lapis_block");
+  });
+  // summit platform
+  v.annulusRect(cx, cz, 0, 4, 12, "smooth_sandstone");
+  // grand staircase: carve a recessed channel up the south face, then lay the ramp
+  for (let k = 0; k <= 11; k++) {
+    v.clear(cx - 2, 3 + k, k + 1, cx + 2, 3 + k, k + 4);
+    v.box(cx - 2, 3 + k, k, cx + 2, 3 + k, k, "smooth_sandstone");
+  }
+  // summit shrine with gold crown
+  for (let y = 13; y <= 15; y++) {
+    v.annulusRect(cx, cz, 2, 2, y, sand);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      v.set(cx + 2 * sx, cz + 2 * sz, y, "cut_sandstone");
+  }
+  v.clear(cx, cz - 2, 13, cx, cz - 2, 14);                      // doorway
+  v.annulusRect(cx, cz, 0, 2, 16, sand);
+  v.annulusRect(cx, cz, 0, 1, 17, "gold_block");
+  v.set(cx, cz, 18, "gold_block");
+  v.set(cx, cz, 13, "gold_block");                              // altar
+  v.set(cx - 4, cz - 4, 13, "torch"); v.set(cx + 4, cz - 4, 13, "torch");
+  // twin obelisks flanking the approach
+  for (const ox of [cx - 6, cx + 6]) {
+    v.box(ox, 1, 0, ox, 1, 3, "cut_sandstone");
+    v.set(ox, 1, 4, "gold_block");
+  }
+
+  templates.push(toTemplate({
+    id: "sunspire_ziggurat",
+    name: "Sunspire Ziggurat",
+    category: "Desert",
+    difficulty: "Advanced",
+    description:
+      "A four-tier stepped sandstone temple, 31 blocks to a side, with a recessed grand " +
+      "staircase climbing the south face, orange-terracotta banding, lapis terrace markers, " +
+      "cut-sandstone corners, twin gold-capped obelisks at the approach and a summit shrine " +
+      "crowned in solid gold.",
+    tips: [
+      "Each tier is exactly 3 high and steps in 3 — get tier one square and the rest follow.",
+      "The staircase channel is carved one block into each terrace so the walls shelter it.",
+      "The tiers are hollow shells; leave them that way or hide treasure rooms inside.",
+      "Build at desert dusk light with lanterns on the terraces — the orange bands come alive.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   9. FROSTVEIL CITADEL — ice castle, 23×23×23
+   ============================================================ */
+{
+  const W = 23, D = 23, H = 23;
+  const v = new Vox(W, D, H);
+  const C = 11;
+
+  // snow ground pad + blue-ice approach
+  v.box(0, 0, 0, 22, 22, 0, "snow_block");
+  v.box(10, 0, 0, 12, 6, 0, "blue_ice");
+
+  // corner towers with translucent ice bands and spires
+  for (const [cx, cz] of [[4, 4], [18, 4], [4, 18], [18, 18]]) {
+    v.cylinder(cx, cz, 1, 12, 2.5, "packed_ice", true);
+    v.ringCircle(cx, cz, 6, 2.5, "ice");
+    v.ringCircle(cx, cz, 10, 2.5, "ice");
+    v.disk(cx, cz, 13, 3, "packed_ice");                        // flared ledge
+    v.ringCircle(cx, cz, 14, 3, "snow_block");
+    // icicles under the ledge
+    v.set(cx + 3, cz, 12, "ice"); v.set(cx - 3, cz, 12, "ice");
+    v.set(cx, cz + 3, 12, "ice"); v.set(cx, cz - 3, 11, "ice");
+    // spire
+    const spire = [2.5, 2, 1.5, 1, 0.5];
+    spire.forEach((r, i) => v.disk(cx, cz, 15 + i, r, "blue_ice"));
+    v.set(cx, cz, 20, "ice");
+    v.set(cx, cz, 21, "end_rod");
+  }
+
+  // curtain walls with ice window bands and snow merlons
+  for (const [x0, z0, x1, z1] of [[7, 4, 15, 4], [7, 18, 15, 18], [4, 7, 4, 15], [18, 7, 18, 15]]) {
+    v.box(x0, z0, 1, x1, z1, 7, "packed_ice");
+    v.box(x0, z0, 4, x1, z1, 5, "ice");
+    for (let x = x0; x <= x1; x++)
+      for (let z = z0; z <= z1; z++)
+        if ((x + z) % 2 === 0) v.set(x, z, 8, "snow_block");
+  }
+  // gate through the front wall
+  v.clear(10, 4, 1, 12, 4, 3);
+  v.clear(11, 4, 4, 11, 4, 4);                                  // pointed arch
+  for (const px of [9, 13]) { v.set(px, 2, 1, "snow_block"); v.set(px, 2, 2, "soul_lantern"); }
+
+  // central hall with glowing floor and pointed roof
+  v.box(7, 7, 1, 15, 15, 9, "packed_ice");
+  v.clear(8, 8, 1, 14, 14, 9);
+  v.box(8, 8, 0, 14, 14, 0, "blue_ice");
+  for (const [lx, lz] of [[11, 11], [9, 9], [13, 13], [9, 13], [13, 9]]) v.set(lx, lz, 0, "sea_lantern");
+  // hall doorway (pointed) facing the gate
+  v.clear(10, 7, 1, 12, 7, 3);
+  v.clear(11, 7, 4, 11, 7, 4);
+  // tall stained-glass windows on the other three faces
+  v.box(10, 15, 3, 12, 15, 6, "light_blue_stained_glass");      // back
+  v.box(7, 10, 3, 7, 12, 6, "light_blue_stained_glass");        // west
+  v.box(15, 10, 3, 15, 12, 6, "light_blue_stained_glass");      // east
+  // pointed hall roof
+  v.annulusRect(C, C, 3, 4, 10, "packed_ice");
+  v.annulusRect(C, C, 2, 3, 11, "packed_ice");
+  v.annulusRect(C, C, 1, 2, 12, "packed_ice");
+  v.annulusRect(C, C, 0, 1, 13, "blue_ice");
+  v.set(C, C, 14, "ice");
+  v.set(C, C, 15, "end_rod");
+
+  templates.push(toTemplate({
+    id: "frostveil_citadel",
+    name: "Frostveil Citadel",
+    category: "Frozen",
+    difficulty: "Advanced",
+    description:
+      "A castle carved from winter itself: packed-ice curtain walls with translucent ice " +
+      "window bands and snow merlons, four flared towers dripping icicles under blue-ice " +
+      "spires, and a great hall with a glowing sea-lantern floor beneath a pointed ice roof — " +
+      "all lit in the cold teal of soul lanterns and end rods.",
+    tips: [
+      "Packed ice and blue ice don't melt near light — regular ice does, so keep torches away from the window bands.",
+      "The sea lanterns go IN the floor under blue ice: the whole hall glows from below at night.",
+      "Silk Touch is mandatory for gathering every ice variant.",
+      "Build it in a snowy biome at height — fog and powder snow around the spires is pure atmosphere.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   10. AURELIA AIRSHIP — steampunk zeppelin, 15×33×27
+   ============================================================ */
+{
+  const W = 15, D = 33, H = 27;
+  const v = new Vox(W, D, H);
+  const cx = 7, czE = 16, cyE = 19;
+  const RX = 5, RZ = 12.5, RY = 6;
+
+  // envelope: hollow ellipsoid shell with cream/rust panels and copper ribs
+  const inside = (x, z, y) => {
+    const dx = (x - cx) / RX, dz = (z - czE) / RZ, dy = (y - cyE) / RY;
+    return dx * dx + dz * dz + dy * dy <= 1;
+  };
+  for (let y = cyE - RY; y <= cyE + RY; y++)
+    for (let z = Math.floor(czE - RZ); z <= Math.ceil(czE + RZ); z++)
+      for (let x = cx - RX; x <= cx + RX; x++) {
+        if (!inside(x, z, y)) continue;
+        const shell =
+          !inside(x + 1, z, y) || !inside(x - 1, z, y) ||
+          !inside(x, z + 1, y) || !inside(x, z - 1, y) ||
+          !inside(x, z, y + 1) || !inside(x, z, y - 1);
+        if (!shell) continue;
+        const mat = z % 6 === 4 ? "exposed_copper"
+          : Math.floor(z / 2) % 2 ? "white_terracotta" : "orange_terracotta";
+        v.set(x, z, y, mat);
+      }
+  // tail fins
+  for (let z = 27; z <= 30; z++) {
+    const t = z - 27;
+    v.box(cx, z, 17 + t, cx, z, 23 - t, "white_terracotta");            // vertical
+    v.box(cx - 3 + t, z, 19, cx + 3 - t, z, 19, "orange_terracotta");   // horizontal
+  }
+
+  // gondola hull (little ship hung below)
+  const ghw = (z) => (z === 9 || z === 23 ? 2 : z >= 10 && z <= 22 ? 3 : 0);
+  for (let z = 9; z <= 23; z++) {
+    const bw = ghw(z);
+    if (!bw) continue;
+    for (let y = 4; y <= 6; y++) {
+      const wy = Math.max(1, bw - (y === 4 ? 1 : 0));
+      v.set(cx - wy, z, y, "spruce_planks");
+      v.set(cx + wy, z, y, "spruce_planks");
+      if (y === 4) v.box(cx - wy, z, y, cx + wy, z, y, "dark_oak_planks");
+    }
+    if (z === 9 || z === 23) v.box(cx - 1, z, 4, cx + 1, z, 7, "spruce_planks");
+  }
+  for (let z = 10; z <= 22; z++) v.box(cx - ghw(z), z, 7, cx + ghw(z), z, 7, "oak_planks");
+  for (let z = 10; z <= 22; z++) { v.set(cx - 3, z, 8, "oak_fence"); v.set(cx + 3, z, 8, "oak_fence"); }
+  // wheelhouse with copper roof
+  v.box(cx - 2, 17, 8, cx + 2, 21, 9, "spruce_planks");
+  v.clear(cx - 1, 18, 8, cx + 1, 20, 9);
+  v.set(cx, 17, 8, "glass_pane"); v.set(cx - 2, 19, 8, "glass_pane"); v.set(cx + 2, 19, 8, "glass_pane");
+  v.box(cx - 2, 17, 10, cx + 2, 21, 10, "cut_copper");
+  v.set(cx, 21, 8, "spruce_door"); v.clear(cx, 21, 9, cx, 21, 9);
+  // copper nose + stern propeller
+  v.set(cx, 8, 6, "copper_block");
+  v.set(cx, 24, 6, "iron_block");
+  v.box(cx, 24, 4, cx, 24, 5, "iron_bars"); v.box(cx, 24, 7, cx, 24, 8, "iron_bars");
+  v.box(cx - 2, 24, 6, cx - 1, 24, 6, "iron_bars"); v.box(cx + 1, 24, 6, cx + 2, 24, 6, "iron_bars");
+  // rigging chains up to the envelope (stop where the hull begins)
+  for (const [rx, rz] of [[cx - 3, 11], [cx + 3, 11], [cx - 3, 21], [cx + 3, 21]]) {
+    for (let y = 9; y <= 16; y++) {
+      if (v.get(rx, rz, y)) break;
+      v.set(rx, rz, y, "chain");
+    }
+  }
+  // running lanterns under the keel
+  v.set(cx - 2, 12, 3, "lantern"); v.set(cx + 2, 20, 3, "lantern");
+
+  templates.push(toTemplate({
+    id: "aurelia_airship",
+    name: "Aurelia Airship",
+    category: "Steampunk",
+    difficulty: "Advanced",
+    description:
+      "A 33-block steampunk zeppelin: a hollow cream-and-rust panelled envelope ribbed with " +
+      "exposed copper, tail fins, and a spruce gondola slung below on rigging chains — " +
+      "complete with a copper-roofed wheelhouse, iron-bar propeller, copper nose cone and " +
+      "running lanterns under the keel.",
+    tips: [
+      "Build the gondola first at final altitude, then raise the envelope ring by ring from its centre.",
+      "The envelope is a hollow shell — count on scaffolding inside it while you close the top.",
+      "Let the copper ribs oxidize unevenly (or wax them at different stages) for a weathered fleet look.",
+      "Chains must hang straight: place them top-down from the envelope's underside.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   11. VERDANT TREEHOUSE — giant oak home, 25×25×25
+   ============================================================ */
+{
+  const W = 25, D = 25, H = 25;
+  const v = new Vox(W, D, H);
+  const rnd = mulberry32(7777);
+  const C = 12;
+
+  // grassy knoll with moss and a path
+  v.disk(C, C, 0, 11.5, () => (rnd() < 0.12 ? "moss_block" : "grass_block"));
+  v.box(11, 0, 0, 13, 5, 0, "dirt_path");
+  for (const [ax, az] of [[4, 8], [19, 14], [15, 3], [6, 19]]) v.set(ax, az, 1, "azalea_leaves");
+
+  // trunk with root flares
+  v.box(11, 11, 0, 13, 13, 17, "oak_log");
+  for (const [rx, rz] of [[10, 12], [14, 12], [12, 10], [12, 14]]) v.box(rx, rz, 0, rx, rz, 1, "oak_log");
+  for (const [rx, rz] of [[9, 9], [15, 15], [9, 15], [15, 9]]) v.set(rx, rz, 0, "oak_log");
+
+  // four branches ending in leaf clusters
+  const branch = (cells, bx, bz, by) => {
+    cells.forEach(([x, z, y]) => v.set(x, z, y, "oak_log"));
+    v.disk(bx, bz, by, 2, "oak_leaves");
+    v.disk(bx, bz, by + 1, 2.3, "oak_leaves");
+    v.disk(bx, bz, by + 2, 1.4, "oak_leaves");
+  };
+  branch([[14, 10, 13], [15, 9, 14], [16, 8, 15]], 17, 7, 15);
+  branch([[10, 14, 12], [9, 15, 13], [8, 16, 14]], 7, 17, 14);
+  branch([[14, 14, 14], [15, 15, 15]], 16, 16, 15);
+  branch([[10, 10, 15], [9, 9, 16]], 8, 8, 16);
+
+  // canopy dome
+  const canopy = [[16, 5], [17, 8], [18, 9], [19, 9], [20, 7.5], [21, 5.5], [22, 3.5], [23, 1.8]];
+  canopy.forEach(([y, r]) => v.disk(C, C, y, r, "oak_leaves"));
+
+  // platform ring around the trunk with railing, hatch and ladder
+  v.annulusRect(C, C, 2, 5, 9, "spruce_planks");
+  v.annulusRect(C, C, 5, 5, 10, "oak_fence");
+  v.clear(12, 10, 9, 12, 10, 10);                               // ladder hatch (railing too)
+  v.box(12, 10, 1, 12, 10, 9, "ladder");
+  // diagonal support struts
+  for (const [s1, s2] of [
+    [[12, 9, 8], [12, 8, 7]], [[12, 15, 8], [12, 16, 7]],
+    [[9, 12, 8], [8, 12, 7]], [[15, 12, 8], [16, 12, 7]],
+  ]) { v.set(...s1, "spruce_log"); v.set(...s2, "spruce_log"); }
+  // lanterns hung under the platform corners
+  for (const [lx, lz] of [[7, 7], [17, 7], [7, 17], [17, 17]]) v.set(lx, lz, 8, "lantern");
+
+  // cabin on the west side of the platform
+  v.box(7, 10, 10, 10, 14, 12, "spruce_planks");
+  v.clear(8, 11, 10, 9, 13, 12);
+  v.set(10, 12, 10, "spruce_door"); v.clear(10, 12, 11, 10, 12, 11);
+  v.set(7, 11, 11, "glass_pane"); v.set(7, 13, 11, "glass_pane");
+  v.set(8, 10, 11, "glass_pane"); v.set(9, 14, 11, "glass_pane");
+  v.box(6, 9, 13, 10, 15, 13, "oak_slab");                      // overhanging roof (stops at the trunk)
+  // rope swing from the south-east branch
+  v.set(15, 15, 14, "chain"); v.set(15, 15, 13, "chain"); v.set(15, 15, 12, "oak_slab");
+
+  templates.push(toTemplate({
+    id: "verdant_treehouse",
+    name: "Verdant Treehouse",
+    category: "Woodland",
+    difficulty: "Advanced",
+    description:
+      "A giant oak grown into a home: a 3×3 trunk with root flares climbs through a ringed " +
+      "platform deck holding a little spruce cabin, up into four log branches and a huge leaf " +
+      "canopy. A ladder runs up the trunk through a deck hatch, lanterns hang beneath the " +
+      "corners, and a chain rope-swing dangles from the south-east branch.",
+    tips: [
+      "Grow the trunk and platform first; the canopy hides a multitude of sins afterwards.",
+      "Vary the leaf clusters — copy the blueprint loosely here, exact leaves don't matter.",
+      "The deck hatch at the north rail is your entrance: ladder up the trunk, through the hole.",
+      "Add vines and moss carpet in-game (not counted here) for the full overgrown look.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   12. EMBERREACH BASTION — nether stronghold, 27×27×20
+   ============================================================ */
+{
+  const W = 27, D = 27, H = 20;
+  const v = new Vox(W, D, H);
+  const rnd = mulberry32(6060);
+  const C = 13;
+  const black = () => {
+    const r = rnd();
+    return r < 0.03 ? "gold_block" : r < 0.2 ? "blackstone" : r < 0.3 ? "polished_blackstone" : "polished_blackstone_bricks";
+  };
+
+  // scorched ground with a basalt causeway
+  v.box(0, 0, 0, 26, 26, 0, () => (rnd() < 0.1 ? "magma_block" : "netherrack"));
+  v.box(12, 0, 0, 14, 13, 0, "basalt");
+  v.box(2, 13, 0, 24, 13, 0, "basalt");
+
+  // outer walls with red nether brick trim and merlons
+  for (let y = 1; y <= 8; y++) v.annulusRect(C, C, 12, 12, y, black);
+  v.annulusRect(C, C, 12, 12, 7, "red_nether_bricks");
+  for (let z = 1; z <= 25; z++)
+    for (let x = 1; x <= 25; x++)
+      if (Math.max(Math.abs(x - C), Math.abs(z - C)) === 12 && (x + z) % 2 === 0)
+        v.set(x, z, 9, "polished_blackstone_bricks");
+
+  // gate: pointed arch with hanging chains, flanked by basalt pillars
+  v.clear(11, 1, 1, 15, 1, 4);
+  v.clear(12, 1, 5, 14, 1, 5);
+  v.set(12, 1, 5, "chain"); v.set(14, 1, 5, "chain");
+  for (const px of [9, 17]) {
+    v.box(px, 0, 1, px, 0, 8, "basalt");
+    v.set(px, 0, 9, "soul_lantern");
+  }
+
+  // corner turrets with gold bands and magma crowns
+  for (const [tx, tz] of [[3, 3], [23, 3], [3, 23], [23, 23]]) {
+    for (let y = 1; y <= 11; y++) v.annulusRect(tx, tz, 2, 2, y, black);
+    v.annulusRect(tx, tz, 2, 2, 10, "gold_block");
+    v.annulusRect(tx, tz, 0, 2, 11, black);
+    for (let z = tz - 2; z <= tz + 2; z++)
+      for (let x = tx - 2; x <= tx + 2; x++)
+        if (Math.max(Math.abs(x - tx), Math.abs(z - tz)) === 2 && (x + z) % 2 === 0)
+          v.set(x, z, 12, "polished_blackstone_bricks");
+    v.set(tx, tz, 12, "magma_block");
+  }
+
+  // lava falls spilling from the side walls into ground pools
+  for (const [lx, lz] of [[26, 8], [0, 18]]) {
+    v.box(lx, lz, 1, lx, lz, 7, "lava");
+    v.set(lx, lz - 1, 0, "lava"); v.set(lx, lz + 1, 0, "lava"); v.set(lx, lz, 0, "lava");
+  }
+
+  // obsidian spire keep with glowstone rings
+  v.cylinder(C, C, 1, 14, 3.5, () => (rnd() < 0.2 ? "crying_obsidian" : "obsidian"), true);
+  v.ringCircle(C, C, 5, 3.5, "glowstone");
+  v.ringCircle(C, C, 10, 3.5, "glowstone");
+  v.clear(C, 10, 1, C, 10, 2);                                  // spire door (south face)
+  v.disk(C, C, 15, 4, black);
+  v.ringCircle(C, C, 16, 4, "polished_blackstone_bricks");
+  v.disk(C, C, 16, 1.5, "magma_block");
+  v.set(C, C, 17, "crying_obsidian");
+  v.set(C, C, 18, "soul_lantern");
+
+  // courtyard lamp posts
+  for (const [px, pz] of [[8, 8], [18, 8], [8, 18], [18, 18]]) {
+    v.box(px, pz, 1, px, pz, 2, "basalt");
+    v.set(px, pz, 3, "soul_lantern");
+  }
+
+  templates.push(toTemplate({
+    id: "emberreach_bastion",
+    name: "Emberreach Bastion",
+    category: "Infernal",
+    difficulty: "Advanced",
+    description:
+      "A nether war-fortress in gilded blackstone: 27×27 walls trimmed with red nether brick, " +
+      "four turrets with gold bands and magma crowns, a chain-hung gate flanked by basalt " +
+      "pillars, lava spilling from the ramparts into ground pools, and an obsidian spire keep " +
+      "ringed in glowstone under a crying-obsidian beacon.",
+    tips: [
+      "The ~3% gold blocks scattered in the walls are the 'gilded blackstone' effect — place them as you go.",
+      "Pour the lava falls LAST, from the wall spouts, after everything below is fireproof.",
+      "Soul lanterns everywhere: their teal against the lava's orange is the whole color story.",
+      "In the actual Nether, swap the ground for the local netherrack and it sits perfectly.",
+    ],
+  }, v));
+}
+
+/* ============================================================
+   13. STARGAZER DOME — copper observatory, 19×19×22
+   ============================================================ */
+{
+  const W = 19, D = 19, H = 22;
+  const v = new Vox(W, D, H);
+  const rnd = mulberry32(3141);
+  const C = 9;
+  const stone = () => {
+    const r = rnd();
+    return r < 0.1 ? "mossy_stone_bricks" : r < 0.16 ? "cracked_stone_bricks" : "stone_bricks";
+  };
+  const copper = () => {
+    const r = rnd();
+    return r < 0.55 ? "oxidized_copper" : r < 0.85 ? "weathered_copper" : "copper_block";
+  };
+
+  // tower base
+  v.disk(C, C, 0, 7, "cobblestone");
+  v.cylinder(C, C, 1, 9, 6, stone, true);
+  v.disk(C, C, 1, 5, "spruce_planks");                          // ground floor
+  v.clear(C, 3, 1, C, 3, 2);
+  v.set(C, 3, 1, "spruce_door");
+  v.set(C - 2, 2, 1, "lantern"); v.set(C + 2, 2, 1, "lantern");
+  // window slits
+  for (const [wx, wz] of [[C + 6, C], [C - 6, C], [C, C + 6]]) v.box(wx, wz, 5, wx, wz, 6, "glass_pane");
+  // study interior
+  v.set(C - 3, C + 2, 2, "bookshelf"); v.set(C - 2, C + 3, 2, "bookshelf"); v.set(C - 3, C + 3, 2, "bookshelf");
+  v.set(C + 3, C + 2, 2, "crafting_table");
+  v.disk(C, C, 6, 5, "spruce_planks");                          // observation floor
+
+  // balcony ring with iron railing
+  v.disk(C, C, 10, 7, "smooth_stone");
+  v.ringCircle(C, C, 11, 7, "iron_bars");
+  // dome-room wall
+  v.cylinder(C, C, 11, 13, 5, "calcite", true);
+  for (const [wx, wz] of [[C + 5, C], [C - 5, C], [C, C + 5]]) v.box(wx, wz, 12, wx, wz, 12, "glass");
+
+  // weathered copper dome
+  const dome = [[14, 5], [15, 4.7], [16, 4.2], [17, 3.4]];
+  dome.forEach(([y, r]) => v.ringCircle(C, C, y, r, copper));
+  v.disk(C, C, 18, 2.2, copper);
+  v.disk(C, C, 19, 1, copper);
+  // observation slit facing south + telescope poking through
+  v.clear(8, 2, 14, 10, 7, 18);
+  v.box(C, C, 11, C, C, 12, "iron_block");                      // mount
+  const tube = [[C, 8, 13], [C, 7, 14], [C, 6, 15], [C, 5, 16], [C, 4, 17]];
+  tube.forEach(([x, z, y]) => v.set(x, z, y, "iron_block"));
+  v.set(C, 3, 18, "light_blue_stained_glass");                  // objective lens glint
+  v.set(C, C, 20, "end_rod");                                   // finial / lightning rod
+
+  templates.push(toTemplate({
+    id: "stargazer_dome",
+    name: "Stargazer Dome",
+    category: "Astral",
+    difficulty: "Advanced",
+    description:
+      "A stone observatory tower crowned with a weathered-copper dome, split by an open " +
+      "observation slit where a blackstone telescope tilts at the southern sky. Below: an " +
+      "iron-railed balcony ring, a calcite dome room, and a lantern-lit study floor with " +
+      "bookshelves for your star charts.",
+    tips: [
+      "The dome mixes three copper oxidation stages — wax each block once it reaches the stage you want.",
+      "The telescope is five blocks stepping one up and one out — through the slit, aimed at the stars.",
+      "Put it on your highest peak; the end rod on top doubles as a lightning rod stand-in.",
+      "Spyglass + ender chest of star charts in the study, obviously.",
+    ],
+  }, v));
+}
+
 /* ---------------- emit ---------------- */
 const banner = `/* ============================================================
    BlockCraft Planner — GRAND BUILD templates

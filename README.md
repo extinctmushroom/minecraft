@@ -18,16 +18,23 @@ that runs entirely in your browser.
   shulker boxes (27 stacks), with one-click copy as a shopping list.
 - **3D isometric preview** — rotate the build 90° at a time, with an optional cutaway at the
   current layer.
-- **14 built-in templates** in two tiers, each with a 3D thumbnail, full materials list and build tips:
+- **21 built-in templates** in two tiers, each with a 3D thumbnail, full materials list and build tips:
   - *Quick Builds* — starter house, cozy cottage, castle tower, wheat farm, fountain,
     lighthouse, stone bridge and nether portal.
-  - *Grand Builds* — six large, intricate showpieces with distinct vibes:
+  - *Grand Builds* — thirteen large, intricate showpieces, each with its own vibe:
     **Stonehold Keep** (31×31 medieval castle with curtain walls, gatehouse and central keep),
-    **Arcanum Spire** (32-block wizard tower with overhanging study and purpur cone roof),
-    **Crimson Pagoda** (four flared-roof tiers to a gilded spire),
-    **Grimhollow Cathedral** (gothic nave with rose window, buttresses, stained glass and apse),
-    **Vista Moderna** (cantilevered modern villa with pool and roof terrace), and
-    **Aetherholm** (a floating sky island with ruins, a lone oak and a rim waterfall).
+    **Arcanum Spire** (wizard tower with overhanging study and purpur cone roof),
+    **Crimson Pagoda** (four flared roof tiers to a gilded spire),
+    **Grimhollow Cathedral** (gothic nave, rose window, buttresses, stained glass and apse),
+    **Vista Moderna** (cantilevered modern villa with pool and roof terrace),
+    **Aetherholm** (floating sky island with ruins and a rim waterfall),
+    **Blacktide Galleon** (three-masted pirate ship under sail),
+    **Sunspire Ziggurat** (stepped desert temple with a recessed grand staircase),
+    **Frostveil Citadel** (ice castle with glowing sea-lantern floors),
+    **Aurelia Airship** (steampunk zeppelin with a copper-ribbed envelope),
+    **Verdant Treehouse** (giant oak with a cabin in its platform ring),
+    **Emberreach Bastion** (gilded-blackstone nether fortress with lava falls), and
+    **Stargazer Dome** (copper-domed observatory with a telescope in its slit).
 
 ![templates](docs/templates.png)
 - **7 building guides** — from using the planner to palettes, roofs, interiors and material math.
