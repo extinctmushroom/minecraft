@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#17191d">
 <title>BlockCraft Planner — Minecraft Building Blueprints</title>
 <meta name="description" content="Plan Minecraft builds layer by layer: draw blueprints, get exact material lists, load templates and follow building guides. Free, runs in your browser.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23573b21'/><rect width='16' height='7' fill='%2360a944'/><rect y='6' width='16' height='2' fill='%234a8a35' opacity='.6'/></svg>">
@@ -25,6 +26,7 @@
   <div class="topbar-actions">
     <button id="btn-new" class="btn" title="New blueprint (sets size)">🗒️ New</button>
     <button id="btn-templates" class="btn btn-accent" title="Load a ready-made build">🏰 Templates</button>
+    <button id="btn-ideas" class="btn" title="Roll a build idea with a ready palette">💡 Ideas</button>
     <button id="btn-guides" class="btn" title="Building guides">📖 Guides</button>
     <span class="sep" aria-hidden="true"></span>
     <button id="btn-save" class="btn" title="Save a named copy in this browser">💾 Save</button>
@@ -37,8 +39,13 @@
 
 <div id="workspace">
 
-  <!-- ===================== LEFT: TOOLS + PALETTE ===================== -->
+  <!-- ===================== LEFT: TOOLS + PALETTE (bottom sheet on mobile) ===================== -->
   <aside id="left-panel">
+    <div id="sheet-head">
+      <span class="sheet-grip" aria-hidden="true"></span>
+      <span class="sheet-title">Blocks &amp; Tools</span>
+      <button id="sheet-close" class="btn btn-sm" aria-label="Close">✕</button>
+    </div>
     <section class="panel" id="tools-panel" aria-label="Tools">
       <h2>Tools</h2>
       <div class="tool-grid" role="toolbar" aria-label="Drawing tools">
@@ -142,12 +149,31 @@
   </div>
 </div>
 
+<!-- Mobile quick bar + sheet scrim -->
+<div id="sheet-scrim" aria-hidden="true"></div>
+<nav id="quickbar" aria-label="Quick tools">
+  <button id="qb-block" title="Choose block"><span class="chip" id="qb-chip"></span></button>
+  <button class="tool" data-tool="pencil" title="Pencil">✏️</button>
+  <button class="tool" data-tool="eraser" title="Eraser">🧽</button>
+  <button class="tool" data-tool="fill" title="Fill">🪣</button>
+  <button class="tool" data-tool="line" title="Line">📏</button>
+  <button class="tool" data-tool="rect" title="Rectangle">▭</button>
+  <button class="tool" data-tool="ellipse" title="Ellipse">◯</button>
+  <button class="tool" data-tool="picker" title="Pick block">💉</button>
+  <span class="qb-sep" aria-hidden="true"></span>
+  <button id="qb-undo" title="Undo">↩</button>
+  <button id="qb-layer-down" title="Layer down">▼</button>
+  <span id="qb-layer" aria-label="Current layer">1</span>
+  <button id="qb-layer-up" title="Layer up">▲</button>
+</nav>
+
 <div id="toast-zone" aria-live="polite"></div>
 
 <script src="js/blocks.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/templates_large.js"></script>
 <script src="js/guides.js"></script>
+<script src="js/ideas.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

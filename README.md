@@ -12,22 +12,35 @@ that runs entirely in your browser.
 - **Layer-by-layer blueprint editor** — each layer is one Y-level in game, drawn top-down on a grid
   with rulers, onion-skinning of the layer below, and mirror-drawing for symmetric builds.
 - **Drawing tools** — pencil, eraser, flood fill, line, rectangle and ellipse (outline or filled —
-  ellipse is the secret weapon for round towers), block picker, undo/redo, keyboard shortcuts.
+  ellipse is the secret weapon for round towers), block picker, undo/redo, keyboard shortcuts,
+  a live brush preview under the cursor, and **drag & drop** straight from the palette onto the grid.
+- **Made for phones too** — an app-style mobile layout with a bottom quick bar, a slide-up
+  block drawer, tap-to-place, drag-to-paint, long-press to pick a block, and pinch-to-zoom /
+  two-finger pan on the canvas.
+- **💡 Idea generator** — one tap rolls a build idea (structure × style × twist) with a ready-made
+  palette and canvas size, and sketches the footprint on layer 1 to get you started.
 - **200+ block palette** — organized by category with search, using map-accurate colors.
 - **Live materials list** — every block counted as you draw, shown as totals, stacks (64) and
   shulker boxes (27 stacks), with one-click copy as a shopping list.
 - **3D isometric preview** — rotate the build 90° at a time, with an optional cutaway at the
   current layer.
-- **14 built-in templates** in two tiers, each with a 3D thumbnail, full materials list and build tips:
+- **21 built-in templates** in two tiers, each with a 3D thumbnail, full materials list and build tips:
   - *Quick Builds* — starter house, cozy cottage, castle tower, wheat farm, fountain,
     lighthouse, stone bridge and nether portal.
-  - *Grand Builds* — six large, intricate showpieces with distinct vibes:
+  - *Grand Builds* — thirteen large, intricate showpieces, each with its own vibe:
     **Stonehold Keep** (31×31 medieval castle with curtain walls, gatehouse and central keep),
-    **Arcanum Spire** (32-block wizard tower with overhanging study and purpur cone roof),
-    **Crimson Pagoda** (four flared-roof tiers to a gilded spire),
-    **Grimhollow Cathedral** (gothic nave with rose window, buttresses, stained glass and apse),
-    **Vista Moderna** (cantilevered modern villa with pool and roof terrace), and
-    **Aetherholm** (a floating sky island with ruins, a lone oak and a rim waterfall).
+    **Arcanum Spire** (wizard tower with overhanging study and purpur cone roof),
+    **Crimson Pagoda** (four flared roof tiers to a gilded spire),
+    **Grimhollow Cathedral** (gothic nave, rose window, buttresses, stained glass and apse),
+    **Vista Moderna** (cantilevered modern villa with pool and roof terrace),
+    **Aetherholm** (floating sky island with ruins and a rim waterfall),
+    **Blacktide Galleon** (three-masted pirate ship under sail),
+    **Sunspire Ziggurat** (stepped desert temple with a recessed grand staircase),
+    **Frostveil Citadel** (ice castle with glowing sea-lantern floors),
+    **Aurelia Airship** (steampunk zeppelin with a copper-ribbed envelope),
+    **Verdant Treehouse** (giant oak with a cabin in its platform ring),
+    **Emberreach Bastion** (gilded-blackstone nether fortress with lava falls), and
+    **Stargazer Dome** (copper-domed observatory with a telescope in its slit).
 
 ![templates](docs/templates.png)
 - **7 building guides** — from using the planner to palettes, roofs, interiors and material math.
@@ -67,6 +80,7 @@ js/blocks.js                  block palette data (ids, names, colors, categories
 js/templates.js               Quick Build templates (hand-written layer strings + legend)
 js/templates_large.js         Grand Build templates (generated — do not edit by hand)
 js/guides.js                  building guide articles
+js/ideas.js                   build idea generator data
 js/app.js                     editor, materials math, iso preview, save/export
 tools/validate.mjs            data integrity check (run: node tools/validate.mjs)
 tools/generate_templates.mjs  voxel-primitive generator for the Grand Builds

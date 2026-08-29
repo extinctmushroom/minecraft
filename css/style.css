@@ -252,7 +252,7 @@ kbd {
 
 /* ---------------- Modal ---------------- */
 #modal-backdrop {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: 70; /* above the mobile sheet (60) and quick bar (50) */
   background: rgba(8,10,12,.72);
   display: flex; align-items: center; justify-content: center;
   padding: 22px;
@@ -354,6 +354,22 @@ kbd {
 .export-opt h3 { font-size: 14px; margin-bottom: 2px; }
 .export-opt p { font-size: 12.5px; color: var(--text-dim); }
 
+/* Idea generator */
+.idea-card { max-width: 520px; margin: 0 auto; text-align: center; }
+.idea-roll { font-size: 34px; }
+.idea-title { font-family: var(--font-pixel); font-size: 14px; color: var(--accent); margin: 10px 0 8px; }
+.idea-line { font-size: 15px; line-height: 1.6; }
+.idea-size { color: var(--text-dim); margin: 8px 0 12px; font-size: 13px; }
+.idea-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.idea-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--panel); border: 2px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.idea-chip:hover { border-color: var(--accent); }
+.idea-tip { font-size: 13px; color: var(--accent2); margin-bottom: 4px; }
+.idea-card .form-actions { justify-content: center; }
+
 /* ---------------- Toasts ---------------- */
 #toast-zone { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .toast {
@@ -366,16 +382,137 @@ kbd {
 .toast.err { border-color: var(--danger); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
+/* ---------------- Sheet head, quick bar, scrim (mobile-only UI) ---------------- */
+#sheet-head, #sheet-scrim, #quickbar { display: none; }
+
+/* ---------------- Motion polish ---------------- */
+#modal { animation: modal-in .18s ease-out; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+#modal-backdrop { animation: fade-in .15s ease-out; }
+@keyframes fade-in { from { opacity: 0; } }
+.tab, .pal-block, .tool { transition: border-color .12s, background .12s, transform .08s; }
+.pal-block:active { transform: scale(.92); }
+#canvas-wrap { overscroll-behavior: contain; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 1120px) {
   #workspace { grid-template-columns: 210px minmax(0,1fr) 260px; }
 }
+
+/* ============================================================
+   Mobile (≤920px): app-style layout.
+   Editor fills the screen; Tools+Blocks become a slide-up sheet
+   opened from a fixed bottom quick bar; Materials/3D stack below.
+   ============================================================ */
 @media (max-width: 920px) {
-  body { overflow: auto; }
-  #workspace { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
-  #editor-area { order: 0; height: 70vh; }
-  #left-panel { order: 1; }
-  #right-panel { order: 2; min-height: 300px; }
-  #palette { max-height: 300px; }
+  html, body { height: auto; }
+  body { display: block; overflow-x: hidden; overflow-y: auto; }
+
+  /* --- compact top bar: brand + name, actions scroll in one row --- */
+  #topbar { padding: 6px 8px; gap: 8px; position: relative; }
+  .brand h1 span { display: none; }
+  #bp-name { flex: 1 1 100px; min-width: 90px; padding: 6px 9px; }
+  .topbar-actions {
+    order: 3; width: 100%; margin-left: 0;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 2px;
+  }
+  .topbar-actions::-webkit-scrollbar { display: none; }
+  .topbar-actions .btn { flex: none; padding: 6px 10px; font-size: 12.5px; }
+  .topbar-actions .sep { display: none; }
+
+  /* --- single column flow; room for the quick bar at the bottom --- */
+  #workspace {
+    display: flex; flex-direction: column;
+    padding: 8px; gap: 8px;
+    padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  }
+  #editor-area { height: 60dvh; min-height: 340px; flex: none; }
+  #grid-canvas { margin: 12px auto; }
+  #layer-bar { padding: 6px 8px; gap: 6px; }
+  #layer-dup, #layer-clear { display: none; }   /* on the quick bar / desktop only */
   #status-hint { display: none; }
+  #status-bar { font-size: 11.5px; padding: 5px 10px; }
+
+  /* --- right panel (Materials / 3D) flows below the editor --- */
+  #right-panel { order: 2; }
+  #materials-panel, #preview-panel { max-height: 52dvh; }
+
+  /* --- left panel becomes a bottom sheet --- */
+  #left-panel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    max-height: 76dvh;
+    background: var(--bg2);
+    border: 2px solid var(--border-hi); border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -12px 40px rgba(0,0,0,.55);
+    transform: translateY(105%);
+    transition: transform .28s cubic-bezier(.2,.85,.25,1);
+    overflow: hidden;
+  }
+  body.sheet-open #left-panel { transform: none; }
+  #left-panel .panel { box-shadow: none; border: none; background: none; padding: 8px 0; }
+  #sheet-head {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    padding: 4px 0 6px; position: relative;
+  }
+  .sheet-grip {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 44px; height: 5px; border-radius: 3px; background: var(--border-hi);
+  }
+  .sheet-title { grid-column: 2; font-weight: 700; font-size: 14px; padding-top: 10px; }
+  #sheet-close { grid-column: 3; justify-self: end; }
+  #tools-panel .tool-grid { grid-template-columns: repeat(7, 1fr); }
+  #palette { max-height: 36dvh; }
+
+  #sheet-scrim {
+    position: fixed; inset: 0; z-index: 55;
+    background: rgba(6,8,10,.55);
+  }
+  body.sheet-open #sheet-scrim { display: block; animation: fade-in .2s ease-out; }
+
+  /* --- fixed bottom quick bar --- */
+  #quickbar {
+    display: flex; align-items: center; gap: 6px;
+    position: fixed; left: 8px; right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+    border: 2px solid var(--border-hi); border-radius: 16px;
+    padding: 7px 9px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #quickbar::-webkit-scrollbar { display: none; }
+  #quickbar button {
+    flex: none; width: 42px; height: 42px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg2); color: var(--text);
+    border: 2px solid var(--border); border-radius: 10px;
+    font-size: 18px; padding: 0; cursor: pointer;
+  }
+  #quickbar .tool span { display: none; }
+  #quickbar .tool.active { border-color: var(--accent); background: rgba(95,187,78,.14); }
+  #qb-block { border-color: var(--accent2) !important; }
+  #qb-block .chip { width: 24px; height: 24px; }
+  #qb-layer {
+    flex: none; min-width: 26px; text-align: center;
+    font-weight: 800; font-size: 15px; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .qb-sep { flex: none; width: 2px; height: 30px; background: var(--border); border-radius: 1px; }
+
+  /* --- toasts clear the quick bar --- */
+  #toast-zone { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: 92vw; }
+  .toast { font-size: 12.5px; text-align: center; }
+
+  /* --- modals go near-fullscreen --- */
+  #modal-backdrop { padding: 10px; align-items: flex-end; }
+  #modal { max-height: 92dvh; width: 100%; border-radius: 14px; }
+  #modal-body { padding: 14px; }
 }
