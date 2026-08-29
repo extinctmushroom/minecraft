@@ -12,7 +12,13 @@ that runs entirely in your browser.
 - **Layer-by-layer blueprint editor** — each layer is one Y-level in game, drawn top-down on a grid
   with rulers, onion-skinning of the layer below, and mirror-drawing for symmetric builds.
 - **Drawing tools** — pencil, eraser, flood fill, line, rectangle and ellipse (outline or filled —
-  ellipse is the secret weapon for round towers), block picker, undo/redo, keyboard shortcuts.
+  ellipse is the secret weapon for round towers), block picker, undo/redo, keyboard shortcuts,
+  a live brush preview under the cursor, and **drag & drop** straight from the palette onto the grid.
+- **Made for phones too** — an app-style mobile layout with a bottom quick bar, a slide-up
+  block drawer, tap-to-place, drag-to-paint, long-press to pick a block, and pinch-to-zoom /
+  two-finger pan on the canvas.
+- **💡 Idea generator** — one tap rolls a build idea (structure × style × twist) with a ready-made
+  palette and canvas size, and sketches the footprint on layer 1 to get you started.
 - **200+ block palette** — organized by category with search, using map-accurate colors.
 - **Live materials list** — every block counted as you draw, shown as totals, stacks (64) and
   shulker boxes (27 stacks), with one-click copy as a shopping list.
@@ -74,6 +80,7 @@ js/blocks.js                  block palette data (ids, names, colors, categories
 js/templates.js               Quick Build templates (hand-written layer strings + legend)
 js/templates_large.js         Grand Build templates (generated — do not edit by hand)
 js/guides.js                  building guide articles
+js/ideas.js                   build idea generator data
 js/app.js                     editor, materials math, iso preview, save/export
 tools/validate.mjs            data integrity check (run: node tools/validate.mjs)
 tools/generate_templates.mjs  voxel-primitive generator for the Grand Builds

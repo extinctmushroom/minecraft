@@ -147,6 +147,13 @@ function buildPalette(filter = "") {
       btn.title = b.name;
       btn.setAttribute("aria-label", b.name);
       btn.addEventListener("click", () => selectBlock(b.index - 1));
+      // drag a block straight onto the canvas to place it
+      btn.draggable = true;
+      btn.addEventListener("dragstart", (ev) => {
+        selectBlock(b.index - 1);
+        ev.dataTransfer.setData("text/plain", b.id);
+        ev.dataTransfer.effectAllowed = "copy";
+      });
       grid.appendChild(btn);
     }
     els.palette.appendChild(grid);
@@ -157,10 +164,13 @@ function selectBlock(i) {
   const b = curBlock();
   els.currentChip.style.background = b.color;
   els.currentName.textContent = b.name;
+  const qbChip = $("qb-chip");
+  if (qbChip) qbChip.style.background = b.color;
   els.palette.querySelectorAll(".pal-block").forEach((el) => {
     el.classList.toggle("selected", el.title === b.name);
   });
   if (state.tool === "eraser" || state.tool === "picker") setTool("pencil");
+  closeSheet(); // picking a block from the mobile sheet returns to the canvas
 }
 
 /* ------------------------------------------------------------
@@ -271,17 +281,28 @@ function render() {
     c.fillText(String(z + 1), RULER / 2, RULER + z * cell + cell / 2);
   }
 
-  // hover highlight
-  if (hoverCell && inBounds(hoverCell.x, hoverCell.z)) {
-    c.strokeStyle = "#5fbb4e";
+  // hover highlight + brush ghost (mouse/pen only — fingers cover the cell)
+  if (hoverCell && inBounds(hoverCell.x, hoverCell.z) && !pinch && lastPointerType !== "touch") {
+    const erase = state.tool === "eraser";
+    if (!drag && state.tool !== "picker") {
+      c.globalAlpha = 0.45;
+      c.fillStyle = erase ? "#000" : curBlock().color;
+      for (const [gx, gz] of mirrorTargets(hoverCell.x, hoverCell.z))
+        c.fillRect(RULER + gx * cell, RULER + gz * cell, cell, cell);
+      c.globalAlpha = 1;
+    }
+    c.strokeStyle = erase ? "#d0564d" : "#5fbb4e";
     c.lineWidth = 2;
-    c.strokeRect(RULER + hoverCell.x * cell + 1, RULER + hoverCell.z * cell + 1, cell - 2, cell - 2);
+    for (const [gx, gz] of mirrorTargets(hoverCell.x, hoverCell.z))
+      c.strokeRect(RULER + gx * cell + 1, RULER + gz * cell + 1, cell - 2, cell - 2);
   }
 }
 
 function drawLayerBlocks(c, y, cell) {
   const { w, d } = state;
   const base = y * d * w;
+  // subtle per-block texture speckles, skipped on big grids to stay fast
+  const speckle = cell >= 16 && w * d <= 4096;
   for (let z = 0; z < d; z++) {
     for (let x = 0; x < w; x++) {
       const v = state.grid[base + z * w + x];
@@ -305,6 +326,16 @@ function drawLayerBlocks(c, y, cell) {
         c.fillStyle = "rgba(0,0,0,.2)";
         c.fillRect(px, pz + cell - 2, cell, 2);
         c.fillRect(px + cell - 2, pz, 2, cell);
+      }
+      if (speckle && b.alpha == null) {
+        let h = (x * 73856093 ^ z * 19349663 ^ v * 83492791) >>> 0;
+        for (let i = 0; i < 3; i++) {
+          h = (h * 1664525 + 1013904223) >>> 0;
+          const sx = px + 3 + (h % (cell - 7));
+          const sy = pz + 3 + ((h >>> 9) % (cell - 7));
+          c.fillStyle = (h & 32) ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.09)";
+          c.fillRect(sx, sy, 3, 3);
+        }
       }
     }
   }
@@ -455,43 +486,132 @@ function commitShape(v) {
   afterEdit();
 }
 
-/* ---- pointer handlers ---- */
+/* ---- pointer handlers ----
+   Mouse/pen: paint immediately on press (right = erase, middle/alt = pick).
+   Touch: tap places on release, dragging paints a stroke, holding still
+   picks the block under the finger, and a second finger switches to
+   pinch-zoom / two-finger pan without leaving stray paint. */
+const pointers = new Map();   // pointerId -> {x, y} (client coords)
+let pinch = null;             // {d, cell, mx, my}
+let touchPending = null;      // {x, z, sx, sy, picked, longTimer}
+let lastPointerType = "mouse";
+
 els.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-els.canvas.addEventListener("pointerdown", (e) => {
-  if (spaceDown) return; // panning handled on wrap
-  const { x, z } = cellFromEvent(e);
-  if (!inBounds(x, z)) return;
-  els.canvas.setPointerCapture(e.pointerId);
-
-  // picker: tool, middle button, or alt+click
-  if (state.tool === "picker" || e.button === 1 || e.altKey) {
-    e.preventDefault();
-    pickAt(x, z);
-    return;
-  }
-
-  const v = toolValue(e.button);
-
+function beginToolAction(x, z, button) {
+  if (state.tool === "picker") { pickAt(x, z); return; }
+  const v = toolValue(button);
   if (state.tool === "fill") { floodFill(x, z, v); return; }
-
   if (SHAPE_TOOLS.has(state.tool)) {
-    drag = { button: e.button, startX: x, startZ: z, shape: true };
+    drag = { button, startX: x, startZ: z, shape: true };
     state.shapeErase = v === 0;
     previewCells = shapeCells(state.tool, x, z, x, z);
     render();
     return;
   }
-
-  // pencil / eraser stroke
-  drag = { button: e.button, snapDone: false, lastX: x, lastZ: z };
+  drag = { button, snapDone: false, lastX: x, lastZ: z };
   ensureStrokeSnapshot();
   paintCell(x, z, v);
   afterEdit();
+}
+
+function startPinch() {
+  if (touchPending) { clearTimeout(touchPending.longTimer); touchPending = null; }
+  if (drag) { drag = null; previewCells = null; state.shapeErase = false; }
+  const [a, b] = [...pointers.values()];
+  pinch = {
+    d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+    cell: state.cell,
+    mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2,
+  };
+  hoverCell = null;
+  render();
+}
+
+function updatePinch() {
+  if (pointers.size < 2) return;
+  const [a, b] = [...pointers.values()];
+  const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const target = Math.max(4, Math.min(48, Math.round(pinch.cell * (d / pinch.d))));
+  if (target !== state.cell) {
+    // zoom around the gesture midpoint
+    const wrap = els.canvasWrap;
+    const rect = wrap.getBoundingClientRect();
+    const ratio = target / state.cell;
+    const contentX = wrap.scrollLeft + (mx - rect.left);
+    const contentY = wrap.scrollTop + (my - rect.top);
+    setZoom(target);
+    wrap.scrollLeft = contentX * ratio - (mx - rect.left);
+    wrap.scrollTop = contentY * ratio - (my - rect.top);
+  }
+  // two-finger pan
+  els.canvasWrap.scrollLeft -= mx - pinch.mx;
+  els.canvasWrap.scrollTop -= my - pinch.my;
+  pinch.mx = mx; pinch.my = my;
+}
+
+els.canvas.addEventListener("pointerdown", (e) => {
+  if (spaceDown) return; // panning handled on wrap
+  lastPointerType = e.pointerType;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  els.canvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 2) { startPinch(); return; }
+  if (pinch || pointers.size > 2) return;
+
+  const { x, z } = cellFromEvent(e);
+  if (!inBounds(x, z)) return;
+
+  if (e.pointerType === "touch") {
+    touchPending = {
+      x, z, sx: e.clientX, sy: e.clientY, picked: false,
+      longTimer: setTimeout(() => {
+        if (!touchPending) return;
+        touchPending.picked = true;
+        pickAt(touchPending.x, touchPending.z);
+        if (navigator.vibrate) navigator.vibrate(12);
+      }, 430),
+    };
+    return;
+  }
+
+  if (e.button === 1 || e.altKey) { e.preventDefault(); pickAt(x, z); return; }
+  beginToolAction(x, z, e.button);
 });
 
 els.canvas.addEventListener("pointermove", (e) => {
+  lastPointerType = e.pointerType;
+  const p = pointers.get(e.pointerId);
+  if (p) { p.x = e.clientX; p.y = e.clientY; }
+  if (pinch) { updatePinch(); return; }
+
   const { x, z } = cellFromEvent(e);
+
+  // touch: promote a held tap into a stroke/shape once the finger moves
+  if (touchPending) {
+    if (Math.hypot(e.clientX - touchPending.sx, e.clientY - touchPending.sy) > 12) {
+      const t = touchPending;
+      clearTimeout(t.longTimer);
+      touchPending = null;
+      if (!t.picked && state.tool !== "picker" && state.tool !== "fill") {
+        beginToolAction(t.x, t.z, 0);
+        if (drag && drag.shape) {
+          previewCells = shapeCells(state.tool, drag.startX, drag.startZ, x, z);
+          render();
+        } else if (drag && inBounds(x, z)) {
+          const v = toolValue(0);
+          for (const key of lineCells(t.x, t.z, x, z).keys()) {
+            const [ix, iz] = key.split(",").map(Number);
+            paintCell(ix, iz, v);
+          }
+          drag.lastX = x; drag.lastZ = z;
+          afterEdit();
+        }
+      }
+    }
+    return;
+  }
+
   const changedHover =
     !hoverCell || hoverCell.x !== x || hoverCell.z !== z;
   hoverCell = { x, z };
@@ -518,17 +638,66 @@ els.canvas.addEventListener("pointermove", (e) => {
   if (changedHover) render();
 });
 
-function endStroke(e) {
+function endStroke() {
   if (drag && drag.shape) commitShape(toolValue(drag.button));
   drag = null;
   state.shapeErase = false;
 }
-els.canvas.addEventListener("pointerup", endStroke);
-els.canvas.addEventListener("pointercancel", () => { drag = null; previewCells = null; render(); });
+
+els.canvas.addEventListener("pointerup", (e) => {
+  pointers.delete(e.pointerId);
+  if (pinch) { if (pointers.size < 2) pinch = null; return; }
+  if (touchPending) {
+    // a clean tap: act on release
+    const t = touchPending;
+    touchPending = null;
+    clearTimeout(t.longTimer);
+    if (!t.picked) {
+      if (state.tool === "picker") pickAt(t.x, t.z);
+      else if (state.tool === "fill") floodFill(t.x, t.z, toolValue(0));
+      else {
+        pushUndo(snapshotLayer(state.cur));
+        paintCell(t.x, t.z, toolValue(0));
+        afterEdit();
+      }
+    }
+    return;
+  }
+  endStroke();
+});
+
+els.canvas.addEventListener("pointercancel", (e) => {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  if (touchPending) { clearTimeout(touchPending.longTimer); touchPending = null; }
+  drag = null; previewCells = null; state.shapeErase = false;
+  render();
+});
+
 els.canvas.addEventListener("pointerleave", () => {
   hoverCell = null;
   els.statusPos.textContent = "—";
   if (!drag) render();
+});
+
+/* ---- drag & drop a block from the palette straight onto the canvas ---- */
+els.canvas.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  const c2 = cellFromEvent(e);
+  if (!hoverCell || hoverCell.x !== c2.x || hoverCell.z !== c2.z) {
+    hoverCell = c2;
+    render();
+  }
+});
+els.canvas.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const { x, z } = cellFromEvent(e);
+  if (!inBounds(x, z)) return;
+  setTool("pencil");
+  pushUndo(snapshotLayer(state.cur));
+  paintCell(x, z, curBlock().index);
+  afterEdit();
 });
 
 /* ---- space + drag panning ---- */
@@ -588,6 +757,8 @@ function setLayer(y, doRender = true) {
   els.layerTotal.textContent = state.h;
   els.layerSlider.max = state.h - 1;
   els.layerSlider.value = state.cur;
+  const qbLayer = $("qb-layer");
+  if (qbLayer) qbLayer.textContent = state.cur + 1;
   if (doRender) {
     render();
     scheduleSideUpdates();
@@ -1379,6 +1550,10 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
     return;
   }
+  if (e.key === "Escape" && document.body.classList.contains("sheet-open")) {
+    closeSheet();
+    return;
+  }
   if (isTyping()) return;
   if (drag) return; // no tool/layer/undo hopping mid-stroke
   const k = e.key.toLowerCase();
@@ -1409,6 +1584,64 @@ function toast(msg, isErr = false) {
   t.textContent = msg;
   els.toastZone.appendChild(t);
   setTimeout(() => t.remove(), 2600);
+}
+
+/* ---- mobile quick bar & block sheet ---- */
+function openSheet() { document.body.classList.add("sheet-open"); }
+function closeSheet() { document.body.classList.remove("sheet-open"); }
+$("qb-block").addEventListener("click", openSheet);
+$("sheet-close").addEventListener("click", closeSheet);
+$("sheet-scrim").addEventListener("click", closeSheet);
+$("qb-undo").addEventListener("click", undo);
+$("qb-layer-up").addEventListener("click", () => setLayer(state.cur + 1));
+$("qb-layer-down").addEventListener("click", () => setLayer(state.cur - 1));
+
+/* ---- build idea generator ---- */
+$("btn-ideas").addEventListener("click", () => showIdeaModal(rollIdea()));
+function showIdeaModal(idea) {
+  const { structure: s, style, twist, tip, title } = idea;
+  const chips = style.palette.map((id) => {
+    const b = BLOCK_BY_ID[id];
+    return b ? `<button class="idea-chip" data-id="${id}" title="Select ${b.name}">
+      <span class="chip" style="background:${b.color}"></span>${b.name}</button>` : "";
+  }).join("");
+  openModal("Build Idea", `
+    <div class="idea-card">
+      <div class="idea-roll" aria-hidden="true">🎲</div>
+      <h3 class="idea-title">${title}</h3>
+      <p class="idea-line">A <strong>${s.name}</strong> in the <strong>${style.name.toLowerCase()}</strong> palette, ${twist}.</p>
+      <p class="idea-size">Suggested canvas: <b>${s.w}×${s.d}×${s.h}</b> · tap a block to put it in hand</p>
+      <div class="idea-chips">${chips}</div>
+      <p class="idea-tip">💡 ${tip}</p>
+      <div class="form-actions">
+        <button class="btn btn-accent" id="idea-start">🏗️ Start this build</button>
+        <button class="btn" id="idea-again">🎲 Roll another</button>
+      </div>
+    </div>`);
+  els.modalBody.querySelectorAll(".idea-chip").forEach((chip) =>
+    chip.addEventListener("click", () => {
+      const b = BLOCK_BY_ID[chip.dataset.id];
+      if (b) { selectBlock(b.index - 1); toast(`${b.name} in hand`); }
+    }));
+  $("idea-again").addEventListener("click", () => showIdeaModal(rollIdea()));
+  $("idea-start").addEventListener("click", () => {
+    pushUndo(snapshotFull());
+    state.name = title.slice(0, 40);
+    els.bpName.value = state.name;
+    state.w = s.w; state.d = s.d; state.h = s.h;
+    state.grid = newGrid(s.w, s.d, s.h);
+    state.cur = 0;
+    // sketch the footprint outline on layer 1 in the base block
+    const base = BLOCK_BY_ID[style.palette[0]];
+    if (base && s.w > 4 && s.d > 4) {
+      for (let x = 1; x < s.w - 1; x++) { setCell(x, 1, 0, base.index); setCell(x, s.d - 2, 0, base.index); }
+      for (let z = 1; z < s.d - 1; z++) { setCell(1, z, 0, base.index); setCell(s.w - 2, z, 0, base.index); }
+      selectBlock(base.index - 1);
+    }
+    closeModal();
+    canvasSize(); fitZoom(); afterEdit(true);
+    toast(`${title} — footprint sketched on layer 1. Make it yours!`);
+  });
 }
 
 /* ---- option checkboxes & misc wiring ---- */
