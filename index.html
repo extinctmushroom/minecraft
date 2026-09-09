@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#17191d">
-<title>BlockCraft Planner — Minecraft Building Blueprints</title>
-<meta name="description" content="Plan Minecraft builds layer by layer: draw blueprints, get exact material lists, load templates and follow building guides. Free, runs in your browser.">
+<title>BlockCraft Builds — Minecraft Blueprints & Planner</title>
+<meta name="description" content="Browse ready-made Minecraft builds with 3D previews, layer-by-layer plans and exact material lists — then open them in the free blueprint editor and make them yours.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23573b21'/><rect width='16' height='7' fill='%2360a944'/><rect y='6' width='16' height='2' fill='%234a8a35' opacity='.6'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,20 +14,97 @@
 </head>
 <body>
 
-<!-- ===================== TOP BAR ===================== -->
-<header id="topbar">
-  <div class="brand">
+<!-- ===================== SITE NAV ===================== -->
+<header id="sitenav">
+  <a class="brand" href="#/builds">
     <span class="brand-cube" aria-hidden="true"></span>
-    <h1>BlockCraft<span> Planner</span></h1>
-  </div>
+    <h1>BlockCraft<span> Builds</span></h1>
+  </a>
+  <nav class="site-links" aria-label="Site">
+    <a href="#/builds" data-nav="browse">🏰 Builds</a>
+    <a href="#/create" data-nav="editor">✏️ Create</a>
+    <button id="btn-ideas" title="Roll a build idea with a ready palette">💡 Ideas</button>
+    <button id="btn-guides" title="Building guides">📖 Guides</button>
+  </nav>
+</header>
 
+<div id="views">
+
+<!-- ===================== BROWSE (home) ===================== -->
+<section id="view-browse" class="view">
+  <div class="browse-inner">
+    <div class="hero">
+      <h2>Find your next build</h2>
+      <p>Ready-made Minecraft blueprints with 3D previews, layer-by-layer plans and exact
+      material lists — open one in the editor and make it yours.</p>
+      <div class="hero-actions">
+        <a class="btn btn-accent" href="#/create">✏️ Start creating</a>
+        <button class="btn" id="hero-ideas">💡 Give me an idea</button>
+      </div>
+    </div>
+    <div class="browse-controls">
+      <input id="browse-search" type="search" placeholder="Search builds… (castle, farm, spruce)" aria-label="Search builds">
+      <div class="chip-row" id="chips-scale" role="group" aria-label="Build size"></div>
+      <div class="chip-row" id="chips-diff" role="group" aria-label="Difficulty"></div>
+    </div>
+    <div id="my-builds-section" class="hidden">
+      <h3 class="browse-heading">📁 My builds</h3>
+      <div class="tpl-grid" id="my-builds"></div>
+    </div>
+    <h3 class="browse-heading" id="browse-count">All builds</h3>
+    <div class="tpl-grid" id="browse-grid"></div>
+    <p class="browse-empty hidden" id="browse-empty">No builds match — try clearing the filters.</p>
+  </div>
+</section>
+
+<!-- ===================== BUILD DETAIL ===================== -->
+<section id="view-build" class="view hidden">
+  <div class="build-inner">
+    <a class="btn btn-sm back-link" href="#/builds">← All builds</a>
+    <div class="build-cols">
+      <div class="build-visual">
+        <h2 id="build-title"></h2>
+        <p class="tpl-meta" id="build-badges"></p>
+        <div class="build-canvas-wrap"><canvas id="build-iso"></canvas></div>
+        <div class="build-visual-controls">
+          <button class="btn btn-sm" id="build-rotate">⟳ Rotate</button>
+          <button class="btn btn-sm" id="build-layers-toggle">🥞 Layer-by-layer</button>
+        </div>
+        <div id="build-layerview" class="hidden">
+          <div class="layerview-bar">
+            <button class="btn btn-sm" id="bl-down">▼</button>
+            <span id="bl-label">Layer 1</span>
+            <button class="btn btn-sm" id="bl-up">▲</button>
+            <input id="bl-slider" type="range" min="0" max="0" value="0" aria-label="Layer">
+          </div>
+          <div class="build-canvas-wrap"><canvas id="build-layer-canvas"></canvas></div>
+        </div>
+      </div>
+      <div class="build-info">
+        <p id="build-desc"></p>
+        <div class="stat-row" id="build-stats"></div>
+        <div class="form-actions">
+          <button class="btn btn-accent" id="build-open">✏️ Open in editor</button>
+          <button class="btn" id="build-json">⬇️ JSON</button>
+          <button class="btn" id="build-mats">📋 Copy materials</button>
+        </div>
+        <h3 class="build-h">Build tips</h3>
+        <ul class="detail-tips" id="build-tips"></ul>
+        <h3 class="build-h">Materials</h3>
+        <div id="build-materials"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== EDITOR (Create) ===================== -->
+<section id="view-editor" class="view hidden">
+
+<header id="topbar">
   <input id="bp-name" type="text" value="My First Build" maxlength="40" aria-label="Blueprint name" spellcheck="false">
 
   <div class="topbar-actions">
     <button id="btn-new" class="btn" title="New blueprint (sets size)">🗒️ New</button>
-    <button id="btn-templates" class="btn btn-accent" title="Load a ready-made build">🏰 Templates</button>
-    <button id="btn-ideas" class="btn" title="Roll a build idea with a ready palette">💡 Ideas</button>
-    <button id="btn-guides" class="btn" title="Building guides">📖 Guides</button>
     <span class="sep" aria-hidden="true"></span>
     <button id="btn-save" class="btn" title="Save a named copy in this browser">💾 Save</button>
     <button id="btn-open" class="btn" title="Open a saved blueprint">📂 Open</button>
@@ -137,6 +214,9 @@
     </section>
   </aside>
 </div>
+
+</section><!-- /view-editor -->
+</div><!-- /views -->
 
 <!-- ===================== MODALS ===================== -->
 <div id="modal-backdrop" class="hidden">

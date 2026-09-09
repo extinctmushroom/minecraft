@@ -742,6 +742,7 @@ $("zoom-fit").addEventListener("click", fitZoom);
 function fitZoom() {
   const availW = els.canvasWrap.clientWidth - RULER - 60;
   const availH = els.canvasWrap.clientHeight - RULER - 60;
+  if (availW < 40 || availH < 40) return; // editor view is hidden — keep current zoom
   setZoom(Math.min(availW / state.w, availH / state.d));
 }
 els.canvasWrap.addEventListener("wheel", (e) => {
@@ -1121,96 +1122,299 @@ function templateGrid(t) {
   return g;
 }
 
-$("btn-templates").addEventListener("click", showTemplatesModal);
-function tplCard(t) {
-  const i = TEMPLATES.indexOf(t);
+/* ============================================================
+   Site views: browse (home), build detail, routing
+   ============================================================ */
+const TPL_CACHE = new Map(); // id -> {g, rows, total}
+function templateData(t) {
+  let d = TPL_CACHE.get(t.id);
+  if (!d) {
+    const g = templateGrid(t);
+    const counts = new Map();
+    g.forEach((v) => { if (v) counts.set(v, (counts.get(v) || 0) + 1); });
+    const rows = [...counts.entries()]
+      .map(([v, n]) => ({ block: BLOCKS[v - 1], n }))
+      .sort((a, b) => b.n - a.n);
+    d = { g, rows, total: rows.reduce((a, r) => a + r.n, 0) };
+    TPL_CACHE.set(t.id, d);
+  }
+  return d;
+}
+
+/* front-facing accessor for gallery/detail renders */
+const frontGet = (t, g) => (x, z, y) =>
+  g[(y * t.depth + (t.depth - 1 - z)) * t.width + (t.width - 1 - x)];
+
+/* ---- browse (home) ---- */
+const browseFilter = { q: "", scale: "all", diff: "all" };
+let chipsBuilt = false;
+
+function buildChips() {
+  if (chipsBuilt) return;
+  chipsBuilt = true;
+  const mk = (host, options, key) => {
+    $(host).innerHTML = options.map(([val, label]) =>
+      `<button class="fchip${browseFilter[key] === val ? " active" : ""}" data-v="${val}">${label}</button>`).join("");
+    $(host).querySelectorAll(".fchip").forEach((ch) =>
+      ch.addEventListener("click", () => {
+        browseFilter[key] = ch.dataset.v;
+        $(host).querySelectorAll(".fchip").forEach((c) => c.classList.toggle("active", c === ch));
+        renderBrowse();
+      }));
+  };
+  mk("chips-scale", [["all", "All sizes"], ["quick", "⚡ Quick builds"], ["grand", "🏰 Grand builds"]], "scale");
+  mk("chips-diff", [["all", "Any difficulty"], ["Beginner", "Beginner"], ["Intermediate", "Intermediate"], ["Advanced", "Advanced"]], "diff");
+  let searchTimer;
+  $("browse-search").addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { browseFilter.q = e.target.value.trim().toLowerCase(); renderBrowse(); }, 140);
+  });
+  $("hero-ideas").addEventListener("click", () => showIdeaModal(rollIdea()));
+}
+
+function browseCard(t) {
+  const { total } = templateData(t);
   return `
-    <button class="tpl-card" data-i="${i}">
-      <canvas class="tpl-thumb" data-i="${i}"></canvas>
+    <a class="tpl-card" href="#/build/${t.id}">
+      <canvas class="tpl-thumb" data-id="${t.id}"></canvas>
       <span class="tpl-info">
         <h3>${t.name}</h3>
         <span class="tpl-meta">
           <span class="tpl-badge d-${t.difficulty}">${t.difficulty}</span>
           <span class="tpl-badge">${t.category}</span>
           <span class="tpl-badge">${t.size}</span>
+          <span class="tpl-badge">${total.toLocaleString()} blocks</span>
         </span>
         <span class="tpl-desc">${t.description.split(". ")[0].replace(/\.+$/, "")}.</span>
       </span>
-    </button>`;
-}
-function showTemplatesModal() {
-  const groups = [
-    { title: "Quick Builds", sub: "Small, finish-in-a-session projects", items: TEMPLATES.filter((t) => t.scale !== "grand") },
-    { title: "Grand Builds", sub: "Large showpieces with real intricacy — plan a few sessions", items: TEMPLATES.filter((t) => t.scale === "grand") },
-  ];
-  openModal("Templates", groups.filter((g) => g.items.length).map((g) => `
-    <div class="tpl-section">
-      <h3>${g.title}</h3><p>${g.sub}</p>
-    </div>
-    <div class="tpl-grid">${g.items.map(tplCard).join("")}</div>`).join(""));
-  // thumbnails (rotated 180° so each build's front faces the camera)
-  els.modalBody.querySelectorAll("canvas.tpl-thumb").forEach((cv) => {
-    const t = TEMPLATES[+cv.dataset.i];
-    const g = templateGrid(t);
-    const get = (x, z, y) =>
-      g[(y * t.depth + (t.depth - 1 - z)) * t.width + (t.width - 1 - x)];
-    renderIso(cv.getContext("2d"), cv, get, t.width, t.depth, t.height, 200);
-    cv.style.height = "140px";
-  });
-  els.modalBody.querySelectorAll(".tpl-card").forEach((card) => {
-    card.addEventListener("click", () => showTemplateDetail(TEMPLATES[+card.dataset.i]));
-  });
+    </a>`;
 }
 
-function showTemplateDetail(t) {
-  const g = templateGrid(t);
-  const counts = new Map();
-  g.forEach((v) => { if (v) counts.set(v, (counts.get(v) || 0) + 1); });
-  const mats = [...counts.entries()]
-    .map(([v, n]) => ({ b: BLOCKS[v - 1], n }))
-    .sort((a, b) => b.n - a.n);
-  openModal(t.name, `
-    <button class="btn btn-sm back-link" id="tpl-back">← All templates</button>
-    <div style="display:flex; gap:20px; flex-wrap:wrap;">
-      <canvas id="tpl-detail-canvas" style="background:#14161a;border-radius:8px;max-width:100%"></canvas>
-      <div style="flex:1;min-width:240px">
-        <p class="tpl-meta" style="margin-bottom:8px">
-          <span class="tpl-badge d-${t.difficulty}">${t.difficulty}</span>
-          <span class="tpl-badge">${t.category}</span>
-          <span class="tpl-badge">${t.size} · ${t.height} layers</span>
-        </p>
-        <p style="line-height:1.55">${t.description}</p>
-        <h3 style="margin:14px 0 6px;font-size:13px;color:var(--text-dim)">MATERIALS</h3>
-        ${mats.map(({ b, n }) => `
-          <div class="mat-row">
-            <span class="chip" style="background:${b.color}"></span>
-            <span class="mat-name"><span class="n">${b.name}</span></span>
-            <span class="mat-count"><span class="total">${n}</span>
-            <span class="stacks">${fmtCount(n, b.id)}</span></span>
-          </div>`).join("")}
-        <h3 style="margin:14px 0 0;font-size:13px;color:var(--text-dim)">BUILD TIPS</h3>
-        <ul class="detail-tips">${t.tips.map((tip) => `<li>${tip}</li>`).join("")}</ul>
-        <div class="form-actions">
-          <button class="btn btn-accent" id="tpl-load">Load this blueprint</button>
-        </div>
-      </div>
-    </div>`);
-  const cv = $("tpl-detail-canvas");
-  renderIso(cv.getContext("2d"), cv,
-    (x, z, y) => g[(y * t.depth + (t.depth - 1 - z)) * t.width + (t.width - 1 - x)],
-    t.width, t.depth, t.height, 320);
-  $("tpl-back").addEventListener("click", showTemplatesModal);
-  $("tpl-load").addEventListener("click", () => {
-    pushUndo(snapshotFull());
-    state.name = t.name; els.bpName.value = t.name;
-    state.w = t.width; state.d = t.depth; state.h = t.height;
-    state.grid = g.slice();
-    state.cur = 0;
-    closeModal();
-    canvasSize(); fitZoom(); afterEdit(true);
-    toast(`Loaded “${t.name}” — step through the layers with [ and ]`);
+function renderBrowse() {
+  buildChips();
+  const { q, scale, diff } = browseFilter;
+  const list = TEMPLATES.filter((t) => {
+    if (scale === "quick" && t.scale === "grand") return false;
+    if (scale === "grand" && t.scale !== "grand") return false;
+    if (diff !== "all" && t.difficulty !== diff) return false;
+    if (q && !(t.name + " " + t.category + " " + t.description).toLowerCase().includes(q)) return false;
+    return true;
   });
+  $("browse-grid").innerHTML = list.map(browseCard).join("");
+  $("browse-count").innerHTML = `All builds · <b>${list.length}</b> of ${TEMPLATES.length}`;
+  $("browse-empty").classList.toggle("hidden", list.length > 0);
+  $("browse-grid").querySelectorAll("canvas.tpl-thumb").forEach((cv) => {
+    const t = TEMPLATES.find((x) => x.id === cv.dataset.id);
+    const { g } = templateData(t);
+    renderIso(cv.getContext("2d"), cv, frontGet(t, g), t.width, t.depth, t.height, 200);
+    cv.style.height = "140px";
+  });
+  renderMyBuilds();
 }
+
+function renderMyBuilds() {
+  const saves = readSaves();
+  const names = Object.keys(saves).sort();
+  $("my-builds-section").classList.toggle("hidden", names.length === 0);
+  if (!names.length) return;
+  $("my-builds").innerHTML = names.map((n, i) => {
+    const s = saves[n];
+    return `
+    <div class="tpl-card" data-i="${i}">
+      <canvas class="tpl-thumb" data-i="${i}"></canvas>
+      <span class="tpl-info">
+        <h3>${escapeHTML(n)}</h3>
+        <span class="tpl-meta"><span class="tpl-badge">${s.width}×${s.depth}×${s.height}</span></span>
+      </span>
+      <span class="mycard-actions">
+        <button class="btn btn-sm btn-accent" data-open="${i}">✏️ Open</button>
+        <button class="btn btn-sm btn-danger" data-del="${i}" title="Delete">✕</button>
+      </span>
+    </div>`;
+  }).join("");
+  $("my-builds").querySelectorAll("canvas.tpl-thumb").forEach((cv) => {
+    try {
+      const bp = deserialize(saves[names[+cv.dataset.i]]);
+      renderIso(cv.getContext("2d"), cv,
+        (x, z, y) => bp.grid[(y * bp.d + (bp.d - 1 - z)) * bp.w + (bp.w - 1 - x)],
+        bp.w, bp.d, bp.h, 180);
+      cv.style.height = "140px";
+    } catch { /* corrupt save — leave the thumb blank */ }
+  });
+  $("my-builds").querySelectorAll("[data-open]").forEach((b) =>
+    b.addEventListener("click", () => {
+      try {
+        const bp = deserialize(saves[names[+b.dataset.open]]);
+        showView("editor");
+        location.hash = "#/create";
+        loadBlueprint(bp, `Opened “${bp.name}”`);
+      } catch (err) { toast(err.message, true); }
+    }));
+  $("my-builds").querySelectorAll("[data-del]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const n = names[+b.dataset.del];
+      delete saves[n];
+      localStorage.setItem(SAVES_KEY, JSON.stringify(saves));
+      toast(`Deleted “${n}”`);
+      renderMyBuilds();
+    }));
+}
+
+/* ---- build detail page ---- */
+let buildCtx = null; // {t, rot, layer}
+
+function renderBuildPage(id) {
+  const t = TEMPLATES.find((x) => x.id === id);
+  const { g, rows, total } = templateData(t);
+  buildCtx = { t, rot: 2, layer: 0 };
+  $("build-title").textContent = t.name;
+  $("build-badges").innerHTML = `
+    <span class="tpl-badge d-${t.difficulty}">${t.difficulty}</span>
+    <span class="tpl-badge">${t.category}</span>
+    <span class="tpl-badge">${t.scale === "grand" ? "Grand build" : "Quick build"}</span>`;
+  $("build-desc").textContent = t.description;
+  $("build-stats").innerHTML = `
+    <div class="stat"><b>${t.width}×${t.depth}</b><span>footprint</span></div>
+    <div class="stat"><b>${t.height}</b><span>layers</span></div>
+    <div class="stat"><b>${total.toLocaleString()}</b><span>blocks</span></div>
+    <div class="stat"><b>${rows.length}</b><span>block types</span></div>`;
+  $("build-tips").innerHTML = t.tips.map((tip) => `<li>${tip}</li>`).join("");
+  $("build-materials").innerHTML = rows.map(({ block, n }) => `
+    <div class="mat-row">
+      <span class="chip" style="background:${block.color}"></span>
+      <span class="mat-name"><span class="n">${block.name}</span>
+        ${block.note ? `<span class="note">${block.note}</span>` : ""}</span>
+      <span class="mat-count"><span class="total">${n.toLocaleString()}</span>
+        <span class="stacks">${fmtCount(n, block.id)}</span></span>
+    </div>`).join("");
+  $("build-layerview").classList.add("hidden");
+  const slider = $("bl-slider");
+  slider.max = t.height - 1;
+  slider.value = 0;
+  drawBuildIso();
+  document.querySelector("#view-build").scrollTop = 0;
+}
+
+function drawBuildIso() {
+  const { t, rot } = buildCtx;
+  const { g } = templateData(t);
+  const [W, D] = rotatedDims(rot, t.width, t.depth);
+  const cv = $("build-iso");
+  const maxPx = Math.min(620, Math.max(300, window.innerWidth - 80));
+  renderIso(cv.getContext("2d"), cv,
+    (x, z, y) => rotatedGet(rot, x, z, y, t.width, t.depth,
+      (ox, oz, oy) => g[(oy * t.depth + oz) * t.width + ox]),
+    W, D, t.height, maxPx);
+}
+
+function drawBuildLayer() {
+  const { t, layer } = buildCtx;
+  const { g } = templateData(t);
+  const cell = Math.max(8, Math.min(24, Math.floor(600 / Math.max(t.width, t.depth))));
+  const cv = $("build-layer-canvas");
+  cv.width = t.width * cell + 1;
+  cv.height = t.depth * cell + 1;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#101215";
+  c.fillRect(0, 0, cv.width, cv.height);
+  for (let z = 0; z < t.depth; z++)
+    for (let x = 0; x < t.width; x++) {
+      const v = g[(layer * t.depth + z) * t.width + x];
+      if (!v) continue;
+      const b = BLOCKS[v - 1];
+      c.globalAlpha = b.alpha != null ? b.alpha : 1;
+      c.fillStyle = b.color;
+      c.fillRect(x * cell, z * cell, cell, cell);
+      c.globalAlpha = 1;
+    }
+  c.strokeStyle = "rgba(255,255,255,.09)";
+  c.beginPath();
+  for (let x = 0; x <= t.width; x++) { c.moveTo(x * cell + 0.5, 0); c.lineTo(x * cell + 0.5, cv.height); }
+  for (let z = 0; z <= t.depth; z++) { c.moveTo(0, z * cell + 0.5); c.lineTo(cv.width, z * cell + 0.5); }
+  c.stroke();
+  $("bl-label").textContent = `Layer ${layer + 1} / ${t.height}`;
+  $("bl-slider").value = layer;
+}
+
+function setBuildLayer(y) {
+  buildCtx.layer = Math.max(0, Math.min(buildCtx.t.height - 1, y));
+  drawBuildLayer();
+}
+
+$("build-rotate").addEventListener("click", () => {
+  buildCtx.rot = (buildCtx.rot + 1) % 4;
+  drawBuildIso();
+});
+$("build-layers-toggle").addEventListener("click", () => {
+  const lv = $("build-layerview");
+  lv.classList.toggle("hidden");
+  if (!lv.classList.contains("hidden")) drawBuildLayer();
+});
+$("bl-up").addEventListener("click", () => setBuildLayer(buildCtx.layer + 1));
+$("bl-down").addEventListener("click", () => setBuildLayer(buildCtx.layer - 1));
+$("bl-slider").addEventListener("input", () => setBuildLayer(+$("bl-slider").value));
+$("build-open").addEventListener("click", () => {
+  const { t } = buildCtx;
+  const { g } = templateData(t);
+  showView("editor");
+  location.hash = "#/create";
+  loadBlueprint({ name: t.name, w: t.width, d: t.depth, h: t.height, grid: g.slice() },
+    `Loaded “${t.name}” — step through the layers with the ▲▼ buttons`);
+});
+$("build-json").addEventListener("click", () => {
+  const { t } = buildCtx;
+  const { g } = templateData(t);
+  downloadBlob(
+    new Blob([JSON.stringify(serializeAny(t.name, t.width, t.depth, t.height, g), null, 1)],
+      { type: "application/json" }),
+    safeFileName(t.name) + ".blockcraft.json");
+  toast("Blueprint JSON downloaded");
+});
+$("build-mats").addEventListener("click", async () => {
+  const { t } = buildCtx;
+  const { rows, total } = templateData(t);
+  const pad = Math.max(...rows.map((r) => r.block.name.length), 10);
+  const text = [
+    `${t.name} — ${t.size} (BlockCraft Builds)`,
+    `Total blocks: ${total}`, "",
+    ...rows.map(({ block, n }) =>
+      `${block.name.padEnd(pad + 2)}×${String(n).padStart(5)}   ${fmtCount(n, block.id)}`),
+  ].join("\n");
+  try { await navigator.clipboard.writeText(text); toast("Material list copied"); }
+  catch { toast("Couldn't access clipboard", true); }
+});
+
+/* ---- routing ---- */
+let editorReady = false;
+function showView(name) {
+  for (const v of ["browse", "build", "editor"]) {
+    $("view-" + v).classList.toggle("hidden", v !== name);
+    document.body.classList.toggle("view-" + v, v === name);
+  }
+  document.querySelectorAll(".site-links a").forEach((a) =>
+    a.classList.toggle("active",
+      a.dataset.nav === name || (name === "build" && a.dataset.nav === "browse")));
+  if (name === "editor") {
+    if (!editorReady) {
+      editorReady = true;
+      canvasSize(); fitZoom(); updateStatusSize();
+    }
+    render();
+  }
+}
+function route() {
+  const h = location.hash || "#/builds";
+  const m = h.match(/^#\/build\/([\w-]+)/);
+  if (m && TEMPLATES.some((t) => t.id === m[1])) {
+    showView("build");
+    renderBuildPage(m[1]);
+    return;
+  }
+  if (h.startsWith("#/create")) { showView("editor"); return; }
+  showView("browse");
+  renderBrowse();
+}
+window.addEventListener("hashchange", route);
 
 /* ---- Guides ---- */
 $("btn-guides").addEventListener("click", showGuidesModal);
@@ -1234,18 +1438,18 @@ function showGuidesModal() {
 /* ------------------------------------------------------------
    9. Save / open / import / export
    ------------------------------------------------------------ */
-function serialize() {
+function serializeAny(name, w, d, h, grid) {
   // Compact palette-indexed format
   const used = new Map(); // block index -> palette pos
   const palette = [];
   const layers = [];
-  const size = state.d * state.w;
-  for (let y = 0; y < state.h; y++) {
+  const size = d * w;
+  for (let y = 0; y < h; y++) {
     const rows = [];
-    for (let z = 0; z < state.d; z++) {
-      const row = new Array(state.w);
-      for (let x = 0; x < state.w; x++) {
-        const v = state.grid[y * size + z * state.w + x];
+    for (let z = 0; z < d; z++) {
+      const row = new Array(w);
+      for (let x = 0; x < w; x++) {
+        const v = grid[y * size + z * w + x];
         if (!v) { row[x] = 0; continue; }
         if (!used.has(v)) { used.set(v, palette.length + 1); palette.push(BLOCKS[v - 1].id); }
         row[x] = used.get(v);
@@ -1256,10 +1460,13 @@ function serialize() {
   }
   return {
     app: "blockcraft-planner", version: 1,
-    name: state.name, width: state.w, depth: state.d, height: state.h,
+    name, width: w, depth: d, height: h,
     palette, layers,
     savedAt: new Date().toISOString(),
   };
+}
+function serialize() {
+  return serializeAny(state.name, state.w, state.d, state.h, state.grid);
 }
 
 function deserialize(data) {
@@ -1625,6 +1832,8 @@ function showIdeaModal(idea) {
     }));
   $("idea-again").addEventListener("click", () => showIdeaModal(rollIdea()));
   $("idea-start").addEventListener("click", () => {
+    showView("editor");
+    location.hash = "#/create";
     pushUndo(snapshotFull());
     state.name = title.slice(0, 40);
     els.bpName.value = state.name;
@@ -1700,8 +1909,9 @@ function boot() {
   updateMaterials();
   updateStatusSize();
   updateUndoButtons();
+  route();
   if (!restored) {
-    setTimeout(() => toast("Welcome! Step through layers with [ and ] — or open 🏰 Templates"), 600);
+    setTimeout(() => toast("Welcome! Pick a build below — or hit ✏️ Create to start from scratch"), 700);
   }
 }
 
