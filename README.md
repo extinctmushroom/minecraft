@@ -1,13 +1,27 @@
-# 🧱 BlockCraft Planner
+# 🧱 BlockCraft Builds
 
-A free, browser-based **Minecraft building planner**. Draw blueprints layer by layer, get an exact
-material shopping list (in stacks and shulker boxes), preview your build in 3D, start from ready-made
-templates, and learn from built-in building guides. No installs, no accounts — it's a static site
-that runs entirely in your browser.
+A free, browser-based **Minecraft builds website and blueprint planner**. Browse a catalog of
+ready-made builds with 3D previews, layer-by-layer plans and exact material lists — then open any
+of them in the built-in editor and make them yours, or start from a blank grid. No installs, no
+accounts — it's a static site that runs entirely in your browser.
 
-![screenshot](docs/screenshot.png)
+![browse](docs/browse.png)
 
-## ✨ Features
+## 🗺️ The site
+
+- **🏰 Builds** (home) — a searchable, filterable catalog of every blueprint (size and difficulty
+  chips, text search), plus a **My builds** shelf for your saved work.
+- **Build pages** (`#/build/<id>`, deep-linkable) — big rotatable 3D view, a **layer-by-layer
+  viewer** with a slider, stat tiles (footprint / layers / blocks / types), build tips, the full
+  material list, and one-click **Open in editor**, **JSON download** and **Copy materials**.
+- **✏️ Create** — the full blueprint editor.
+- **💡 Ideas** and **📖 Guides** — available from anywhere in the site nav.
+
+![build page](docs/build.png)
+
+## ✨ Editor features
+
+![editor](docs/screenshot.png)
 
 - **Layer-by-layer blueprint editor** — each layer is one Y-level in game, drawn top-down on a grid
   with rulers, onion-skinning of the layer below, and mirror-drawing for symmetric builds.
@@ -41,8 +55,6 @@ that runs entirely in your browser.
     **Verdant Treehouse** (giant oak with a cabin in its platform ring),
     **Emberreach Bastion** (gilded-blackstone nether fortress with lava falls), and
     **Stargazer Dome** (copper-domed observatory with a telescope in its slit).
-
-![templates](docs/templates.png)
 - **7 building guides** — from using the planner to palettes, roofs, interiors and material math.
 - **Save / share** — autosaves in the browser, named saves, JSON export/import, and a printable
   **blueprint sheet PNG** with every layer plus the material list.
